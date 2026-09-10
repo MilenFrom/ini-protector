@@ -1,0 +1,27 @@
+# Files and patterns NOT shipped in the distributed (client) plugin zip.
+# Consumed by bin/build-zip.sh. One pattern per line; '#' starts a comment.
+#
+# readme.txt IS shipped (standard WP plugin readme) — do not list it here.
+
+# Version control / dev metadata
+.git
+.gitignore
+.gitattributes
+.github
+
+# Build tooling and dev-only config
+bin
+.distignore
+
+# Development documentation excluded from the plugin ZIP
+*.md
+docs
+
+# Editor / OS cruft
+.vscode
+.idea
+.DS_Store
+*.map
+node_modules
+
+dist/

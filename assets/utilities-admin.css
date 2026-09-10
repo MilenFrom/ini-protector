@@ -1,0 +1,27 @@
+.secwp-wrap { max-width: 1080px; }
+.secwp-h1 { display:flex; align-items:center; gap:8px; font-size:23px; font-weight:600; color:#1d2327; margin:6px 0 8px; }
+.secwp-h1 .dashicons { color:#2271b1; width:26px; height:26px; font-size:26px; }
+.secwp-muted { color:#646970; font-size:13px; margin:0 0 16px; }
+.secwp-card { background:#fff; border:1px solid #c3c4c7; border-radius:4px; overflow:hidden; margin-bottom:18px; }
+.secwp-card-head { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid #dcdcde; background:#f6f7f7; }
+.secwp-card-head h2 { font-size:14px; margin:0; color:#1d2327; }
+.secwp-card-head .dashicons { color:#646970; }
+.secwp-card-body { padding:16px; }
+.secwp-lead { font-size:14px; color:#1d2327; margin:0 0 8px; }
+.secwp-why { color:#3c434a; font-size:13px; line-height:1.6; margin:0 0 12px; max-width:78ch; }
+.secwp-cost { background:#f6f7f7; border-left:4px solid #dba617; padding:10px 14px; font-size:13px; color:#3c434a; line-height:1.6; margin:0 0 14px; max-width:78ch; }
+.secwp-cost .dashicons { color:#dba617; vertical-align:text-bottom; }
+.secwp-warn-box { background:#fcf9e8; border:1px solid #f0e6b8; border-radius:4px; padding:10px 14px; font-size:13px; color:#3c434a; line-height:1.6; margin:0 0 14px; max-width:78ch; }
+.secwp-warn-box .dashicons { color:#996800; vertical-align:text-bottom; }
+.secwp-kv { border-collapse:collapse; margin:0 0 14px; }
+.secwp-kv th { text-align:left; font-weight:600; font-size:13px; color:#1d2327; padding:4px 18px 4px 0; vertical-align:top; white-space:nowrap; }
+.secwp-kv td { font-size:13px; color:#3c434a; padding:4px 0; }
+.secwp-kv code { background:#f0f0f1; padding:1px 6px; border-radius:3px; font-size:12px; }
+.secwp-hint-inline { color:#646970; font-size:12px; }
+.secwp-hint { color:#646970; font-size:12px; margin:8px 0 0; max-width:78ch; line-height:1.6; }
+.secwp-hint code { background:#f0f0f1; padding:1px 6px; border-radius:3px; font-size:12px; }
+.secwp-actions { margin:0; }
+.secwp-history { margin-top:16px; }
+.secwp-history summary { cursor:pointer; font-size:13px; color:#2271b1; }
+.secwp-history table { margin-top:10px; }
+.secwp-history code { font-size:12px; }

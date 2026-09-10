@@ -1,0 +1,22 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Dependencies / build artefacts (none currently, but keep the repo clean)
+node_modules/
+vendor/
+*.log
+
+dist/
+
+# Local credentials and WordPress environment
+.env
+.env.*
+!.env.example
+wp-config.php
+*.sql
+*.pem
+*.key
