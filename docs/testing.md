@@ -40,3 +40,5 @@ For user-facing changes, also exercise the affected admin and public flows. For 
 ## Releases
 
 The maintainer publishes approved releases to WordPress.org SVN. A pull request, GitHub merge, or local ZIP build does not publish a WordPress.org release.
+
+See [repository and release workflow](repository-workflow.md) for the development and publication process.

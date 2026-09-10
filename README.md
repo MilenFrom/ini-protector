@@ -5,6 +5,7 @@ WordPress security and hardening with individually configurable features: file i
 - [Install the stable plugin from WordPress.org](https://wordpress.org/plugins/ini-protector/)
 - [Report a bug or request a feature](https://github.com/MilenFrom/ini-protector/issues)
 - [Contribute](CONTRIBUTING.md) · [Development and testing](docs/testing.md) · [Security reporting](SECURITY.md)
+- [Repository and release workflow](docs/repository-workflow.md)
 
 ## Requirements
 

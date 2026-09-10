@@ -2,6 +2,8 @@
 
 Contributions from other developers are welcome.
 
+The canonical repository is [MilenFrom/ini-protector](https://github.com/MilenFrom/ini-protector). Submit pull requests against `main`; no direct repository access is needed to contribute through a fork. See [repository and release workflow](docs/repository-workflow.md) for the relationship between GitHub development and WordPress.org distribution.
+
 ## Bugs and feature requests
 
 Search existing issues first. For bugs, include reproduction steps, expected and actual behavior, and your WordPress, PHP, and plugin versions. Remove credentials, personal information, and private server details from logs and screenshots. For vulnerabilities, use [private security reporting](SECURITY.md).
