@@ -73,6 +73,18 @@ class SecurityWP_Security_Scan {
 			$debug_display ? 'WP_DEBUG_DISPLAY is on — errors may leak paths to visitors.' : 'Debug display is off.',
 			'Set WP_DEBUG_DISPLAY to false in wp-config.php for production.' );
 
+		// How the client IP is decided (it drives blocking, so forgery matters).
+		$trusted    = class_exists( 'SecurityWP_Traffic_Log' ) ? SecurityWP_Traffic_Log::trusted_proxies() : array();
+		$legacy     = defined( 'SECWP_TRUST_PROXY' ) && SECWP_TRUST_PROXY;
+		$proxy_warn = $legacy && ! $trusted;
+		$f[] = self::finding( 'forwarded_ip', 'Client IP cannot be forged', $proxy_warn ? 'warn' : 'pass',
+			$proxy_warn
+				? 'SECWP_TRUST_PROXY accepts X-Forwarded-For / CF-Connecting-IP without checking who sent it. A visitor reaching the origin directly can hide behind another IP, or get that IP blocked.'
+				: ( $trusted
+					? 'Forwarded headers are accepted only from the declared proxy addresses.'
+					: 'Client IPs come from the socket peer, which a visitor cannot forge.' ),
+			'Replace SECWP_TRUST_PROXY with SECWP_TRUSTED_PROXIES in wp-config.php, listing your proxy/CDN ranges — e.g. define( \'SECWP_TRUSTED_PROXIES\', \'173.245.48.0/20, 2400:cb00::/32\' );' );
+
 		// PHP version (EOL check, rough).
 		$php_ok = version_compare( PHP_VERSION, '8.1', '>=' );
 		$f[] = self::finding( 'php_version', 'Supported PHP version', $php_ok ? 'pass' : 'warn',
@@ -206,7 +218,7 @@ class SecurityWP_Security_Scan {
 			RecursiveIteratorIterator::CATCH_GET_CHILD
 		);
 		foreach ( $it as $file ) {
-			if ( ! $file->isFile() || 'php' !== strtolower( $file->getExtension() ) ) {
+			if ( ! $file->isFile() || ! self::is_executable( $file->getFilename() ) ) {
 				continue;
 			}
 			$rel = $prefix . str_replace( '\\', '/', substr( $file->getPathname(), strlen( $dir ) + 1 ) );
@@ -233,7 +245,7 @@ class SecurityWP_Security_Scan {
 			RecursiveIteratorIterator::CATCH_GET_CHILD
 		);
 		foreach ( $it as $file ) {
-			if ( $file->isFile() && preg_match( '/\.(php|phtml|php\d?)$/i', $file->getFilename() ) ) {
+			if ( $file->isFile() && self::is_executable( $file->getFilename() ) ) {
 				$found[] = 'uploads/' . str_replace( '\\', '/', substr( $file->getPathname(), strlen( $dir ) + 1 ) );
 				if ( count( $found ) >= $limit ) {
 					break;
@@ -244,6 +256,21 @@ class SecurityWP_Security_Scan {
 	}
 
 	// ── helpers ─────────────────────────────────────────────────────────────────
+
+	/**
+	 * Shared with the integrity monitor, deliberately.
+	 *
+	 * These two subsystems used to carry three different ideas of what a PHP file is
+	 * ('php' exactly, /php\d?/, and a configurable extension list), so a shell named
+	 * .php5 was caught by whichever scanner you happened to run and missed by the
+	 * others. One definition now, in one place.
+	 */
+	private static function is_executable( string $filename ): bool {
+		if ( class_exists( 'SecurityWP_Integrity' ) ) {
+			return SecurityWP_Integrity::is_executable_name( $filename );
+		}
+		return (bool) preg_match( '/\.(php|phtml|phps|pht|phar|php[3-8])$/i', $filename );
+	}
 
 	private static function finding( string $id, string $label, string $status, string $detail, string $fix ): array {
 		return array( 'id' => $id, 'label' => $label, 'status' => $status, 'detail' => $detail, 'fix' => $fix );

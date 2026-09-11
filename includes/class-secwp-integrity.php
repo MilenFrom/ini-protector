@@ -69,7 +69,28 @@ class SecurityWP_Integrity {
 	/** Field separator for the packed in-memory maps (keeps peak memory ~halved). */
 	const SEP = "\x1f";
 
-	const DEFAULT_EXTENSIONS = 'php,phtml,js,htaccess';
+	/**
+	 * Everything PHP will execute, not just ".php".
+	 *
+	 * Hosts routinely map .php5/.php7/.phtml to the interpreter, .phar is executable
+	 * outright, and .pht/.phps slip past naive filters — which is exactly why droppers
+	 * use them. One list, shared by the integrity monitor and the security scan, so the
+	 * two can never disagree about what counts as code again.
+	 */
+	const EXECUTABLE_EXTENSIONS = 'php,phtml,phps,pht,phar,php3,php4,php5,php6,php7,php8';
+
+	/**
+	 * Watched by exact filename, because pathinfo() cannot see them.
+	 *
+	 * pathinfo( '.user.ini' ) reports the extension as "ini", NOT "user.ini" — so an
+	 * extension list can never match it, however it is written. Both of these turn PHP
+	 * execution ON in a directory, so they matter most in precisely the places that
+	 * hold no code: a .htaccess or .user.ini appearing under uploads is the enabler
+	 * half of a webshell.
+	 */
+	const ALWAYS_WATCH_FILENAMES = '.htaccess,.user.ini';
+
+	const DEFAULT_EXTENSIONS = 'php,phtml,phps,pht,phar,php3,php4,php5,php6,php7,php8,js,htaccess';
 	const DEFAULT_MAX_FILES  = 200000;
 
 	/* --------------------------------------------------------------------- */
@@ -208,11 +229,31 @@ class SecurityWP_Integrity {
 		return in_array( $f, $valid, true ) ? $f : 'hourly';
 	}
 
+	/** @return string[] Lowercase executable extensions, no leading dot. */
+	public static function executable_extensions(): array {
+		return explode( ',', self::EXECUTABLE_EXTENSIONS );
+	}
+
 	/**
-	 * Extensions (and bare filenames) that count as "code".
+	 * Would this filename be executed, or make its directory executable?
 	 *
-	 * pathinfo() reports the extension of ".htaccess" as "htaccess", so a plain
-	 * extension list covers dotfiles like .htaccess and .user.ini too.
+	 * The single test every scanner in the plugin uses. Takes a bare filename, not a
+	 * path, so callers cannot accidentally match on a directory component.
+	 */
+	public static function is_executable_name( string $filename ): bool {
+		$name = strtolower( $filename );
+		if ( in_array( $name, explode( ',', self::ALWAYS_WATCH_FILENAMES ), true ) ) {
+			return true;
+		}
+		$ext = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
+		return '' !== $ext && in_array( $ext, self::executable_extensions(), true );
+	}
+
+	/**
+	 * Extensions that count as "code" for the ordinary (non-media) roots.
+	 *
+	 * NOTE: an extension list cannot express ".user.ini" — pathinfo() calls that "ini".
+	 * Filename-matched watches live in ALWAYS_WATCH_FILENAMES instead.
 	 *
 	 * @return string[] lowercase, no leading dot
 	 */
@@ -237,6 +278,33 @@ class SecurityWP_Integrity {
 	 *
 	 * @return string[]
 	 */
+	/**
+	 * Built-in prefixes that hold data, not code.
+	 *
+	 * These are NOT skipped outright any more. They are descended into and checked for
+	 * executables only — hashing the media is what was expensive, never the walking, and
+	 * uploads is the single most common place a shell is dropped. Ordinary files there
+	 * are still ignored, so a churning uploads folder still costs nothing to monitor.
+	 *
+	 * @return string[]
+	 */
+	public function media_prefixes(): array {
+		return array(
+			'wp-content/uploads',
+			'wp-content/cache',
+			'wp-content/upgrade',
+			'wp-content/upgrade-temp-backup',
+			'wp-content/backup',
+			'wp-content/backups',
+			'wp-content/backup-db',
+			'wp-content/ai1wm-backups',
+			'wp-content/updraft',
+			'wp-content/wflogs',
+			'wp-content/et-cache',
+			'wp-content/w3tc-cache',
+		);
+	}
+
 	public function excluded_prefixes(): array {
 		$defaults = array(
 			'wp-content/uploads',
@@ -353,6 +421,13 @@ class SecurityWP_Integrity {
 		if ( 'wp-config.php' === $base || '.htaccess' === $base || '.user.ini' === $base ) {
 			return true;
 		}
+		// Executable code where only media lives. There is no innocent reason for a
+		// .php in wp-content/uploads, so when one appears it leads the report.
+		foreach ( $this->media_prefixes() as $p ) {
+			if ( 0 === strpos( $rel, $p . '/' ) && self::is_executable_name( $base ) ) {
+				return true;
+			}
+		}
 		if ( 0 === strpos( $rel, 'wp-admin/' ) || 0 === strpos( $rel, 'wp-includes/' ) ) {
 			return true;
 		}
@@ -382,6 +457,11 @@ class SecurityWP_Integrity {
 	public function collect(): array {
 		$exts       = array_flip( $this->extensions() );
 		$prefixes   = $this->excluded_prefixes();
+		$media      = $this->media_prefixes();
+		// A user-configured exclusion still means "do not look here at all"; only the
+		// built-in media/cache defaults are downgraded to an executables-only sweep, so
+		// nobody's deliberate exclusion starts producing noise after an update.
+		$blind      = array_values( array_diff( $prefixes, $media ) );
 		$dirnames   = array_flip( $this->excluded_dirnames() );
 		$max_files  = (int) SecurityWP_Features::get( self::FEATURE, 'max_files', self::DEFAULT_MAX_FILES );
 		$max_files  = $max_files > 0 ? $max_files : self::DEFAULT_MAX_FILES;
@@ -408,7 +488,7 @@ class SecurityWP_Integrity {
 			// Prune excluded directories during descent — far cheaper than filtering leaves.
 			$filtered = new RecursiveCallbackFilterIterator(
 				$dir,
-				function ( $current ) use ( $prefixes, $dirnames ) {
+				function ( $current ) use ( $blind, $dirnames ) {
 					try {
 						if ( ! $current->isDir() ) {
 							return true;
@@ -420,7 +500,7 @@ class SecurityWP_Integrity {
 						return false;
 					}
 					$rel = $this->relative_path( $current->getPathname() );
-					foreach ( $prefixes as $p ) {
+					foreach ( $blind as $p ) {
 						if ( $rel === $p || 0 === strpos( $rel . '/', $p . '/' ) ) {
 							return false;
 						}
@@ -440,9 +520,20 @@ class SecurityWP_Integrity {
 					$truncated = true;
 					break;
 				}
-				$path = $file->getPathname();
-				$ext  = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
-				if ( ! isset( $exts[ $ext ] ) ) {
+				$path       = $file->getPathname();
+				$name       = $file->getFilename();
+				$ext        = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
+				$executable = self::is_executable_name( $name );
+
+				// Cheap test first: most files are neither code nor executable, and
+				// skipping them here avoids computing a relative path per leaf.
+				if ( ! $executable && ! isset( $exts[ $ext ] ) ) {
+					continue;
+				}
+				// Inside uploads/cache/backups we hash executables and nothing else.
+				// A .js or .htaccess-shaped asset there is ordinary; a .php or a
+				// .user.ini is not, and that asymmetry is the whole point.
+				if ( ! $executable && $this->under_prefix( $path, $media ) ) {
 					continue;
 				}
 				// Symlinks are not followed into (no FOLLOW_SYMLINKS) and a symlinked
@@ -465,6 +556,17 @@ class SecurityWP_Integrity {
 			'truncated'  => $truncated,
 			'bytes'      => $bytes,
 		);
+	}
+
+	/** Is this absolute path inside one of the given ABSPATH-relative prefixes? */
+	private function under_prefix( string $abs, array $prefixes ): bool {
+		$rel = $this->relative_path( $abs );
+		foreach ( $prefixes as $p ) {
+			if ( $rel === $p || 0 === strpos( $rel, $p . '/' ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Hash one file into the collection, recording it as unreadable on failure. */
@@ -549,6 +651,16 @@ class SecurityWP_Integrity {
 			if ( isset( $baseline[ $ph ] ) && ! isset( $current[ $ph ] ) ) {
 				$current[ $ph ] = $baseline[ $ph ];
 			}
+		}
+
+		// A truncated scan never reached the whole tree, so "absent from $current" means
+		// "not looked at", not "deleted". Carrying every unseen baseline row forward keeps
+		// the run honest twice over: no storm of false deletions in the report, and
+		// persist() cannot drop rows for files it never opened — which would silently
+		// shrink the monitored set to the truncated head and leave the rest unwatched
+		// from then on. Files we DID reach are still compared normally.
+		if ( $scan['truncated'] ) {
+			$current += $baseline;
 		}
 
 		$first_run = empty( $baseline );

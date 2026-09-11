@@ -4,7 +4,7 @@ Tags: security, hardening, file integrity, two-factor, login
 Requires at least: 5.7
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.9.5
+Stable tag: 1.9.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,12 +17,15 @@ is an independent toggle, grouped into three areas:
 
 **Security**
 
-* **File integrity monitoring** — hashes every code file (.php, .js, .htaccess …),
-  keeps a baseline, and re-checks on a schedule. Any file that is added, changed,
-  or deleted is emailed to you (and optionally POSTed to a webhook) *before* the
-  baseline is updated, so the evidence has already left the server even if the
-  site itself is compromised. Media is never hashed. Runs from WP-Cron or from
-  system cron via `wp secwp integrity scan`.
+* **File integrity monitoring** — hashes every code file (.php, .php5, .phtml,
+  .phar, .js, .htaccess, .user.ini …), keeps a baseline, and re-checks on a
+  schedule. Any file that is added, changed, or deleted is emailed to you (and
+  optionally POSTed to a webhook) *before* the baseline is updated, so the
+  evidence has already left the server even if the site itself is compromised.
+  Media is never hashed, but uploads, caches and backup folders are still checked
+  for executable files — a .php among your images has no innocent explanation and
+  is reported as critical. Runs from WP-Cron or from system cron via
+  `wp secwp integrity scan`.
 * **Two-factor authentication (TOTP)** — a time-based one-time code from any
   standard authenticator app, required per role. The password is verified first,
   then the code, before any session cookie is issued. Recovery codes are issued
@@ -92,6 +95,18 @@ is an independent toggle, grouped into three areas:
 
 * Head cleanup lives here, not in SeoWP — SeoWP keeps pure SEO concerns
   (titles, meta, schema, noindex directives).
+* Behind a reverse proxy or CDN, tell INI Protector which addresses your proxy
+  uses so it can read the real visitor IP safely:
+
+      define( 'SECWP_TRUSTED_PROXIES', '173.245.48.0/20, 2400:cb00::/32' );
+
+  Forwarded headers (X-Forwarded-For, CF-Connecting-IP) are then read only when
+  the connection actually comes from one of those addresses — so a visitor who
+  reaches your origin directly cannot claim to be someone else, evade an IP
+  block, or get an innocent IP blocked. Without this, client IPs come from the
+  socket peer, which cannot be forged. Security → Scan reports which mode you
+  are in. The older SECWP_TRUST_PROXY constant still works but cannot check who
+  sent the header; replace it when you can.
 
 == External services ==
 
@@ -120,6 +135,19 @@ Build instructions are in that project's README and package.json.
 The widget runs locally in the browser; no ALTCHA service account is required.
 
 == Changelog ==
+
+= 1.9.6 =
+* Security: file integrity monitoring now checks **wp-content/uploads, caches and backup folders for executable files**. Media there is still skipped, so scans stay fast (walking 20,000 uploads costs about a tenth of a second), but a .php dropped among the images — the most common way a break-in persists — is now reported, and flagged as critical. Deliberate exclusions you configured yourself are still skipped entirely.
+* Security: one definition of "executable file" now covers every scanner. Previously the integrity monitor watched .php/.phtml, the uploads check matched .php plus digits, and the core-file check matched only .php exactly — so a shell named `evil.php5` was caught by whichever scan you happened to run and missed by the others. All of them now cover .php, .phtml, .phps, .pht, .phar and .php3–.php8.
+* Security: `.user.ini` is now watched. It was intended to be, but an extension list can never match it — PHP reports the extension of ".user.ini" as "ini" — so it fell through every check. Like .htaccess, it can switch PHP execution on in a folder, so it is treated as critical wherever it appears.
+* Security: the site password form is now rate-limited — 10 wrong guesses per visitor, then a 15-minute pause. A single site-wide password that never rotates was previously guessable as fast as requests could be sent, from any URL.
+* Security: a locked-out IP is now refused before WordPress verifies the password, rather than after. The lockout always blocked the login, but the password was still hashed on every attempt, so a locked-out attacker could keep burning server CPU.
+* Security: the site password now applies to the REST API by the same rule as the front-end. Previously any logged-in account — a subscriber, for example — could read password-protected posts and pages through /wp-json/ even without the site password. Accounts that can edit posts, and anyone who has entered the site password, are unaffected.
+* Security: two-factor sign-in no longer extends its own five-minute window. A wrong code used to mint a fresh token, so a pending "password accepted" state could be held open indefinitely by keeping the login screen busy. Retries now keep the original deadline, a successful sign-in consumes the challenge, and changing or resetting the password — or resetting 2FA — revokes any pending sign-in immediately.
+* Security: authenticator secrets are now always encrypted before being stored. If encryption is unavailable the setup screen says so and refuses, instead of quietly saving the secret unprotected; an unprotected secret left by an earlier version is re-encrypted the next time it is read.
+* Security: added SECWP_TRUSTED_PROXIES for sites behind a proxy or CDN — see Notes. Forwarded IP headers are accepted only from the addresses you declare, and X-Forwarded-For is read from the trusted end, so a visitor cannot forge an identity to dodge a block or get another IP blocked. Security → Scan now reports how client IPs are being decided.
+* Fixed: login rate limiting now uses the same visitor IP as the rest of the plugin. Behind a CDN it previously saw only the CDN's address, so one attacker's failed logins could lock out every visitor at once.
+* Fixed: a file-integrity scan that hits the file limit no longer reports every unscanned file as deleted, and no longer drops those files from the baseline — which silently left everything past the limit unmonitored from then on.
 
 = 1.9.5 =
 * Fixed PHP warnings and warning text appearing in the username field when login masking is enabled. The masked login loader now shares WordPress login globals with the login header, footer and authentication hooks, including interim-login state.

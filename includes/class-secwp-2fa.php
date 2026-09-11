@@ -48,6 +48,9 @@ class SecurityWP_2FA {
 	/** How long the half-finished login stays valid. */
 	const TOKEN_TTL = 300;
 
+	/** Per-user counter folded into the token signature; bumping it revokes pending logins. */
+	const META_AUTH_GEN = 'secwp_2fa_auth_gen';
+
 	/** Wrong codes allowed per user before the attempt window is shut. */
 	const MAX_ATTEMPTS  = 10;
 	const ATTEMPT_WINDOW = 900;
@@ -66,6 +69,11 @@ class SecurityWP_2FA {
 
 		add_filter( 'authenticate', array( __CLASS__, 'intercept' ), 100, 3 );
 		add_action( 'login_form_' . self::ACTION, array( __CLASS__, 'handle_second_step' ) );
+
+		// Revoke pending first-factor proofs whenever the first factor itself changes.
+		add_action( 'after_password_reset', array( __CLASS__, 'bump_auth_generation' ) );
+		add_action( 'profile_update', array( __CLASS__, 'on_profile_update' ), 10, 2 );
+		add_action( 'secwp_2fa_disabled', array( __CLASS__, 'bump_auth_generation' ) );
 
 		// Enrolment UI on the user's own profile and on user-edit screens.
 		add_action( 'show_user_profile', array( __CLASS__, 'render_profile_section' ) );
@@ -189,6 +197,7 @@ class SecurityWP_2FA {
 
 		$user        = $parsed['user'];
 		$remember    = $parsed['remember'];
+		$expires     = $parsed['expires']; // Reused on retry so the window never grows.
 		$redirect_to = isset( $_POST['redirect_to'] ) && is_string( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : '';
 
 		if ( self::attempts( $user->ID ) >= self::MAX_ATTEMPTS ) {
@@ -197,7 +206,8 @@ class SecurityWP_2FA {
 				(string) $redirect_to,
 				$remember,
 				__( 'Too many incorrect codes. Wait a few minutes and sign in again.', 'ini-protector' ),
-				true
+				true,
+				$expires
 			);
 		}
 
@@ -216,10 +226,12 @@ class SecurityWP_2FA {
 
 		if ( ! $ok ) {
 			self::bump_attempts( $user->ID );
-			self::show_challenge( $user, (string) $redirect_to, $remember, __( 'That code was not correct. Codes change every 30 seconds — check your device clock if this keeps happening.', 'ini-protector' ) );
+			self::show_challenge( $user, (string) $redirect_to, $remember, __( 'That code was not correct. Codes change every 30 seconds — check your device clock if this keeps happening.', 'ini-protector' ), false, $expires );
 		}
 
 		self::clear_attempts( $user->ID );
+		// Consume the challenge: this token has done its job and must not be replayed.
+		self::bump_auth_generation( $user->ID );
 
 		// Second factor satisfied: complete the login exactly as wp_signon would.
 		wp_set_auth_cookie( $user->ID, $remember );
@@ -233,10 +245,16 @@ class SecurityWP_2FA {
 	/**
 	 * Render the code form on the login screen and stop the request.
 	 *
-	 * @param bool $locked Render without an input (attempt limit reached).
+	 * @param bool     $locked  Render without an input (attempt limit reached).
+	 * @param int|null $expires Carry the original deadline into a retry.
+	 *
+	 * A re-render after a wrong code (or after the attempt limit) must reuse the
+	 * deadline it was given. Minting a fresh one here is what made TOKEN_TTL a
+	 * fiction: anyone holding a pending token could keep submitting wrong codes
+	 * and hold "password accepted" open indefinitely, five minutes at a time.
 	 */
-	private static function show_challenge( WP_User $user, string $redirect_to, bool $remember, string $error = '', bool $locked = false ): void {
-		$token = self::make_token( $user, $remember );
+	private static function show_challenge( WP_User $user, string $redirect_to, bool $remember, string $error = '', bool $locked = false, ?int $expires = null ): void {
+		$token = self::make_token( $user, $remember, $expires );
 
 		// login_header()/login_footer() live in wp-login.php, so they exist for a
 		// real login request (masked slug included) and not otherwise.
@@ -326,16 +344,22 @@ class SecurityWP_2FA {
 	 * then be signed with the old hash and verified against the new one, and the
 	 * user would be bounced back to the login form with no explanation — on their
 	 * first sign-in after a WordPress upgrade, which is the worst possible moment.
-	 * Bound instead to user_registered, which never changes.
+	 * Bound instead to user_registered plus a per-user generation counter, which
+	 * IS revocable: changing the password or resetting 2FA bumps it and every
+	 * pending token signed against the old value stops verifying. The counter is
+	 * its own row, so a silent rehash never moves it.
+	 *
+	 * @param int|null $expires Inherit an earlier deadline; null starts a new one.
+	 *                          A retry must NOT extend the window — see show_challenge().
 	 */
-	private static function make_token( WP_User $user, bool $remember ): string {
-		$expires = time() + self::TOKEN_TTL;
+	private static function make_token( WP_User $user, bool $remember, ?int $expires = null ): string {
+		$expires = ( null === $expires ) ? time() + self::TOKEN_TTL : $expires;
 		$payload = $user->ID . '|' . $expires . '|' . ( $remember ? '1' : '0' );
 		return $payload . '|' . self::sign( $payload, $user );
 	}
 
 	/**
-	 * @return array{user:WP_User,remember:bool}|null
+	 * @return array{user:WP_User,remember:bool,expires:int}|null
 	 */
 	private static function verify_token( string $token ): ?array {
 		$parts = explode( '|', $token );
@@ -361,11 +385,45 @@ class SecurityWP_2FA {
 		return array(
 			'user'     => $user,
 			'remember' => ( '1' === $remember ),
+			'expires'  => (int) $expires,
 		);
 	}
 
 	private static function sign( string $payload, WP_User $user ): string {
-		return hash_hmac( 'sha256', $payload . '|' . $user->user_registered, wp_salt( 'secure_auth' ) );
+		$binding = $payload . '|' . $user->user_registered . '|' . self::auth_generation( $user->ID );
+		return hash_hmac( 'sha256', $binding, wp_salt( 'secure_auth' ) );
+	}
+
+	/**
+	 * Per-user counter that invalidates pending first-factor proofs.
+	 *
+	 * A pending token says "this password was accepted". If the password is then
+	 * changed or reset, that statement is no longer true and the token has to
+	 * stop being accepted — otherwise someone who had the old password could sit
+	 * on a pending login and finish it later, after the owner believed they had
+	 * locked the account.
+	 */
+	private static function auth_generation( int $user_id ): int {
+		return (int) get_user_meta( $user_id, self::META_AUTH_GEN, true );
+	}
+
+	/** Revoke every pending token for this user. */
+	public static function bump_auth_generation( $user_id ): void {
+		$user_id = (int) ( $user_id instanceof WP_User ? $user_id->ID : $user_id );
+		if ( $user_id > 0 ) {
+			update_user_meta( $user_id, self::META_AUTH_GEN, self::auth_generation( $user_id ) + 1 );
+		}
+	}
+
+	/** Password changed on the profile screen: revoke, but only if it really changed. */
+	public static function on_profile_update( $user_id, $old_user_data = null ): void {
+		if ( ! $old_user_data instanceof WP_User ) {
+			return;
+		}
+		$new = get_userdata( (int) $user_id );
+		if ( $new instanceof WP_User && $new->user_pass !== $old_user_data->user_pass ) {
+			self::bump_auth_generation( $user_id );
+		}
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -574,7 +632,16 @@ class SecurityWP_2FA {
 		$secret = SecurityWP_TOTP::get_secret( $user->ID );
 		if ( '' === $secret ) {
 			$secret = SecurityWP_TOTP::generate_secret();
-			SecurityWP_TOTP::set_secret( $user->ID, $secret );
+			if ( ! SecurityWP_TOTP::set_secret( $user->ID, $secret ) ) {
+				// The seed could not be encrypted, and we will not store it in the
+				// clear just to keep the screen working. Say so instead of handing
+				// out a QR code for a secret that was never saved.
+				echo '<tr><th>' . esc_html__( 'Set up', 'ini-protector' ) . '</th><td>';
+				echo '<p style="color:#b32d2e;"><strong>' . esc_html__( 'Two-factor authentication cannot be set up on this server.', 'ini-protector' ) . '</strong></p>';
+				echo '<p class="description">' . esc_html__( 'The authenticator secret could not be encrypted, and INI Protector will not store it unprotected. Ask your host to enable PHP’s sodium extension, then reload this page.', 'ini-protector' ) . '</p>';
+				echo '</td></tr>';
+				return;
+			}
 		}
 
 		$uri = SecurityWP_TOTP::provisioning_uri( $user, $secret );

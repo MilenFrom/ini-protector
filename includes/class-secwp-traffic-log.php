@@ -271,30 +271,125 @@ class SecurityWP_Traffic_Log {
 	}
 
 	/**
-	 * The client IP, validated. Uses REMOTE_ADDR (the socket peer) by default because proxy headers
-	 * like X-Forwarded-For / CF-Connecting-IP are CLIENT-SUPPLIED and trivially spoofable — trusting
-	 * them in a *security* log would let an attacker forge or hide their IP. Consistent with the
-	 * limit-login and cookie-notice tweaks, which also use REMOTE_ADDR only.
+	 * The client IP, validated. Every IP-based decision in the plugin comes through here so the
+	 * log, the login limiter and the block list cannot disagree about who a visitor is.
 	 *
-	 * Sites genuinely behind a trusted reverse proxy / CDN (where REMOTE_ADDR is the proxy) can opt
-	 * in by defining SECWP_TRUST_PROXY = true in wp-config.php; only then do we read the left-most
-	 * X-Forwarded-For / CF-Connecting-IP value.
+	 * REMOTE_ADDR (the socket peer) is the default, because X-Forwarded-For / CF-Connecting-IP are
+	 * CLIENT-SUPPLIED and trivially spoofable — trusting them in a *security* log would let an
+	 * attacker forge their IP, evade a block, or get someone else's IP blocked instead.
+	 *
+	 * Sites behind a reverse proxy / CDN (where REMOTE_ADDR is the proxy) should declare the proxy
+	 * in wp-config.php:
+	 *
+	 *     define( 'SECWP_TRUSTED_PROXIES', '173.245.48.0/20, 2400:cb00::/32' );
+	 *
+	 * A forwarded header is then read ONLY when the socket peer is one of those addresses, which is
+	 * the part that makes it trustworthy: a visitor connecting directly to the origin cannot claim
+	 * to be someone else, because their peer address is not on the list.
+	 *
+	 * SECWP_TRUST_PROXY = true is the older, blunter opt-in and is still honoured, but it cannot
+	 * check who sent the header. It is treated as legacy: public addresses only (a real CDN never
+	 * forwards a private client IP), and the security scan flags it with the upgrade to make.
 	 */
 	public static function client_ip(): string {
-		if ( defined( 'SECWP_TRUST_PROXY' ) && SECWP_TRUST_PROXY ) {
-			foreach ( array( 'HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR' ) as $key ) {
-				if ( empty( $_SERVER[ $key ] ) || ! is_string( $_SERVER[ $key ] ) ) {
-					continue;
+		$peer      = SecurityWP_Input::remote_ip();
+		$forwarded = self::forwarded_ip( $peer );
+		if ( '' !== $forwarded ) {
+			return $forwarded;
+		}
+		return filter_var( $peer, FILTER_VALIDATE_IP ) ? $peer : '';
+	}
+
+	/** Trusted proxy addresses/ranges from wp-config, or an empty list. */
+	public static function trusted_proxies(): array {
+		if ( ! defined( 'SECWP_TRUSTED_PROXIES' ) ) {
+			return array();
+		}
+		$raw   = SECWP_TRUSTED_PROXIES;
+		$raw   = is_array( $raw ) ? implode( ',', $raw ) : (string) $raw;
+		$parts = preg_split( '/[\s,]+/', $raw, -1, PREG_SPLIT_NO_EMPTY );
+		return is_array( $parts ) ? $parts : array();
+	}
+
+	/** Is this address one of the declared proxies? Reuses the allowlist CIDR matcher. */
+	private static function is_trusted_proxy( string $ip, array $trusted ): bool {
+		if ( '' === $ip ) {
+			return false;
+		}
+		foreach ( $trusted as $entry ) {
+			if ( class_exists( 'SecurityWP_Autoblock' ) ) {
+				if ( SecurityWP_Autoblock::ip_matches( $ip, (string) $entry ) ) {
+					return true;
 				}
-				$raw   = wp_unslash( $_SERVER[ $key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- validate the first complete IP below before using it.
-				$first = trim( explode( ',', $raw )[0] );
-				if ( filter_var( $first, FILTER_VALIDATE_IP ) ) {
-					return sanitize_text_field( $first );
+			} elseif ( $ip === trim( (string) $entry ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Header value as a list of trimmed candidates, left to right. */
+	private static function header_ips( string $key ): array {
+		if ( empty( $_SERVER[ $key ] ) || ! is_string( $_SERVER[ $key ] ) ) {
+			return array();
+		}
+		$raw = wp_unslash( $_SERVER[ $key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each candidate is validated as an IP below before use.
+		$out = array();
+		foreach ( explode( ',', $raw ) as $part ) {
+			$part = trim( $part );
+			if ( '' !== $part ) {
+				$out[] = $part;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * The forwarded client address, or '' when none may be trusted.
+	 *
+	 * With SECWP_TRUSTED_PROXIES the peer must itself be a declared proxy, and X-Forwarded-For is
+	 * walked from the RIGHT — the end nearest us, which our own proxies wrote — stopping at the
+	 * first address that is not a known hop. Anything the client prepended sits to the left of
+	 * that and is never reached, which is exactly the forgery this closes.
+	 */
+	private static function forwarded_ip( string $peer ): string {
+		$trusted = self::trusted_proxies();
+
+		if ( $trusted ) {
+			if ( ! self::is_trusted_proxy( $peer, $trusted ) ) {
+				return ''; // Direct connection, or an undeclared proxy: headers mean nothing.
+			}
+			foreach ( self::header_ips( 'HTTP_CF_CONNECTING_IP' ) as $candidate ) {
+				if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+					return sanitize_text_field( $candidate ); // Single-valued and written by the edge.
+				}
+			}
+			foreach ( array_reverse( self::header_ips( 'HTTP_X_FORWARDED_FOR' ) ) as $candidate ) {
+				if ( ! filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+					return ''; // Garbage in the chain: stop rather than guess past it.
+				}
+				if ( ! self::is_trusted_proxy( $candidate, $trusted ) ) {
+					return sanitize_text_field( $candidate );
+				}
+			}
+			return '';
+		}
+
+		if ( defined( 'SECWP_TRUST_PROXY' ) && SECWP_TRUST_PROXY ) {
+			// Legacy mode: we cannot tell who sent the header, so at least refuse values a real
+			// CDN would never forward. A private or reserved address here is either a
+			// misconfiguration or someone trying to look like localhost to dodge a block.
+			foreach ( array( 'HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR' ) as $key ) {
+				foreach ( self::header_ips( $key ) as $candidate ) {
+					if ( filter_var( $candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+						return sanitize_text_field( $candidate );
+					}
+					break; // Left-most only, as before.
 				}
 			}
 		}
-		$ip = SecurityWP_Input::remote_ip();
-		return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+
+		return '';
 	}
 
 	/**

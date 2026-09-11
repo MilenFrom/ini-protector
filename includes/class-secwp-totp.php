@@ -15,7 +15,10 @@
  *    Trade-off: rotating the site's salts makes existing secrets unreadable —
  *    users then sign in with a recovery code (or the WP-CLI break-glass) and
  *    re-enrol. secret_readable() detects that state so the UI can say so plainly
- *    instead of failing mysteriously.
+ *    instead of failing mysteriously. Encryption is mandatory: if it is not
+ *    available, enrolment is refused rather than silently storing the seed in
+ *    the clear, and any unencrypted seed left by an earlier version is
+ *    re-encrypted the next time it is read.
  *
  *  • Recovery codes are stored as plain SHA-256 hashes, deliberately NOT with a
  *    slow password hash. They are 50-bit random tokens we generate, not
@@ -228,14 +231,35 @@ class SecurityWP_TOTP {
 		return (bool) get_user_meta( $user_id, self::META_ENABLED, true );
 	}
 
-	/** Store a pending secret (enrolment is only completed by confirm()). */
-	public static function set_secret( int $user_id, string $secret ): void {
-		update_user_meta( $user_id, self::META_SECRET, self::encrypt( $secret ) );
+	/**
+	 * Store a pending secret (enrolment is only completed by confirm()).
+	 *
+	 * @return bool False when the secret could not be encrypted — nothing is
+	 *              written, and the caller must abandon the enrolment rather
+	 *              than leave an unusable or unprotected row behind.
+	 */
+	public static function set_secret( int $user_id, string $secret ): bool {
+		$stored = self::encrypt( $secret );
+		if ( null === $stored ) {
+			return false;
+		}
+		update_user_meta( $user_id, self::META_SECRET, $stored );
+		return true;
 	}
 
 	public static function get_secret( int $user_id ): string {
 		$stored = (string) get_user_meta( $user_id, self::META_SECRET, true );
-		return '' === $stored ? '' : self::decrypt( $stored );
+		if ( '' === $stored ) {
+			return '';
+		}
+		// A row from a build that stored the seed unencrypted. Upgrade it in place
+		// now that we can, so the at-rest guarantee becomes true for this user too.
+		// Best effort: if it still cannot be encrypted the login must keep working.
+		if ( 0 !== strpos( $stored, self::ENCRYPTED_PREFIX ) ) {
+			self::set_secret( $user_id, $stored );
+			return $stored;
+		}
+		return self::decrypt( $stored );
 	}
 
 	/**
@@ -353,20 +377,31 @@ class SecurityWP_TOTP {
 		return hash( 'sha256', $material, true );
 	}
 
-	private static function encrypt( string $plain ): string {
+	/**
+	 * Encrypt, or fail — never fall back to storing the seed in the clear.
+	 *
+	 * Earlier versions returned the plaintext when libsodium was missing or the
+	 * call threw. That made the documented guarantee ("a database-only compromise
+	 * cannot mint codes") conditional on something the reader could not see, and
+	 * the verifier accepted the degraded value forever afterwards. In practice the
+	 * branch was unreachable — WordPress has shipped the sodium_compat polyfill
+	 * since 5.2 and we require 5.7 — so refusing costs nothing and the promise
+	 * becomes true unconditionally.
+	 *
+	 * @return string|null Ciphertext, or null when it could not be protected.
+	 */
+	private static function encrypt( string $plain ): ?string {
 		if ( '' === $plain ) {
 			return '';
 		}
 		if ( ! function_exists( 'sodium_crypto_secretbox' ) ) {
-			// No libsodium: store as-is rather than pretending. Everything still
-			// works; only the at-rest protection is absent.
-			return $plain;
+			return null;
 		}
 		try {
-			$nonce = random_bytes( SODIUM_CRYPTO_SECRETBOX_NONCEBYTES );
+			$nonce  = random_bytes( SODIUM_CRYPTO_SECRETBOX_NONCEBYTES );
 			$cipher = sodium_crypto_secretbox( $plain, $nonce, self::key() );
-		} catch ( Exception $e ) {
-			return $plain;
+		} catch ( Throwable $e ) {
+			return null;
 		}
 		return self::ENCRYPTED_PREFIX . base64_encode( $nonce . $cipher );
 	}

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: INI Protector
  * Description: Lightweight WordPress hardening — file integrity monitoring with off-server alerts, TOTP two-factor authentication, login masking & lockout, security headers, information-disclosure protection, user-enumeration prevention, ALTCHA captcha, head cleanup, feed/author privacy and more. Integrates with the INI WP control panel.
- * Version:     1.9.5
+ * Version:     1.9.6
  * Author:      ini software
  * Author URI:  https://iniwp.com
  * License:     GPL v2 or later
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'SECWP_VERSION', '1.9.5' );
+define( 'SECWP_VERSION', '1.9.6' );
 define( 'SECWP_FILE', __FILE__ );
 define( 'SECWP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SECWP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
