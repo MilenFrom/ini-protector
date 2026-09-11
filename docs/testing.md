@@ -4,6 +4,16 @@ Use your own disposable WordPress installation with PHP 7.4 or newer, WP-CLI, an
 
 The regression scripts change settings and may create users or exercise plugin replacement. Use a disposable database and plugin directory, and reset the installation between suites. Never run them on production or a shared site.
 
+`bin/smoke.php` overwrites the `secwp_features` option, and a full suite run can also empty `secwp_features_config`. If you run these against an installation you care about, that destroys your saved configuration — and on a site with masked login enabled it destroys the login slug, which locks you out, because `/wp-login.php` redirects away and the secret URL is gone. Snapshot both options first and restore them afterwards:
+
+```sh
+wp option get secwp_features --format=json        > features.json
+wp option get secwp_features_config --format=json > features-config.json
+# run the suites
+wp option update secwp_features --format=json        < features.json
+wp option update secwp_features_config --format=json < features-config.json
+```
+
 ## Syntax and packaging
 
 From the repository root:

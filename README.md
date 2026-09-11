@@ -11,6 +11,20 @@ WordPress security and hardening with individually configurable features: file i
 
 WordPress 5.7 or later and PHP 7.4 or later. See [readme.txt](readme.txt) for feature details and the release changelog.
 
+## Configuration constants
+
+Optional, defined in `wp-config.php`:
+
+| Constant | Purpose |
+| --- | --- |
+| `SECWP_TRUSTED_PROXIES` | Comma-separated IPs/CIDRs of your reverse proxy or CDN. Forwarded client-IP headers are honoured **only** when the connection comes from one of these, and `X-Forwarded-For` is read from the trusted end. Without it, client IPs come from the socket peer and cannot be forged. |
+| `SECWP_TRUST_PROXY` | Legacy boolean form. Still honoured, but it cannot verify who sent the header, so it is limited to public addresses and reported as a warning by Security → Scan. Prefer `SECWP_TRUSTED_PROXIES`. |
+| `SECWP_VULN_API_BASE` | Override the vulnerability database endpoint. |
+
+```php
+define( 'SECWP_TRUSTED_PROXIES', '173.245.48.0/20, 2400:cb00::/32' );
+```
+
 ## Development installation
 
 Clone this repository into a disposable WordPress installation's `wp-content/plugins/ini-protector` directory, then activate INI Protector. The default branch contains development code; use WordPress.org for stable installations.
