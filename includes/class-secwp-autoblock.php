@@ -206,7 +206,7 @@ class SecurityWP_Autoblock {
 	 * @param array|null $state  Optional in-flight state array (the cron passes its own to batch the save); when null this loads + saves state itself.
 	 * @return true|WP_Error
 	 */
-	public static function escalate( string $ip, string $why, string $source, array &$state = null ) {
+	public static function escalate( string $ip, string $why, string $source, ?array &$state = null ) {
 		$own_state = ( null === $state );
 		if ( $own_state ) {
 			$state = self::state();

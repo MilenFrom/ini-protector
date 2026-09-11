@@ -136,6 +136,12 @@ The widget runs locally in the browser; no ALTCHA service account is required.
 
 == Changelog ==
 
+= 1.9.7 =
+* Traffic history now keeps at most 250,000 requests by default (about 90 MB) instead of being unlimited. The 90-day window is unchanged, and whichever limit is reached first applies — on a busy site that is usually the row cap. **If your log is already larger than this, the excess is deleted the first time the log prunes after updating.** Choose "No limit" in Configure → Traffic monitor to keep the old behaviour; a limit you set yourself is never overridden.
+* The row cap can no longer starve auto-block. Requests inside the auto-block evaluation window are never deleted by the cap, however low it is set, so the blocker always scores a complete window — previously a busy site with a small cap would have handed it a partial picture, and the busier the site the less it would have seen.
+* Integrity webhooks now refuse link-local addresses (169.254.0.0/16, fe80::/10), which are the cloud metadata endpoint on every major host and never a collector. Private and loopback addresses still work, because an internal collector is a real setup — but the File integrity page now says plainly when the webhook points inside your network, so an address nobody meant to set is visible rather than silent.
+* Fixed a deprecation notice on PHP 8.4 and later in the auto-block escalation routine, which would have become a fatal error on PHP 9.
+
 = 1.9.6 =
 * Security: file integrity monitoring now checks **wp-content/uploads, caches and backup folders for executable files**. Media there is still skipped, so scans stay fast (walking 20,000 uploads costs about a tenth of a second), but a .php dropped among the images — the most common way a break-in persists — is now reported, and flagged as critical. Deliberate exclusions you configured yourself are still skipped entirely.
 * Security: one definition of "executable file" now covers every scanner. Previously the integrity monitor watched .php/.phtml, the uploads check matched .php plus digits, and the core-file check matched only .php exactly — so a shell named `evil.php5` was caught by whichever scan you happened to run and missed by the others. All of them now cover .php, .phtml, .phps, .pht, .phar and .php3–.php8.

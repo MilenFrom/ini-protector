@@ -249,6 +249,16 @@ class SecurityWP_Integrity_Admin {
 		echo '</div></div>';
 	}
 
+	/** Does this URL's host literal sit in a private, loopback or link-local range? */
+	private function is_private_host( string $url ): bool {
+		$host = (string) ( wp_parse_url( $url, PHP_URL_HOST ) ?? '' );
+		$host = trim( $host, '[]' );
+		if ( '' === $host || ! filter_var( $host, FILTER_VALIDATE_IP ) ) {
+			return false; // A hostname; we do not resolve it here just to draw a notice.
+		}
+		return ! filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+	}
+
 	/** The things that silently defeat this feature, stated plainly with the fix. */
 	private function render_warnings( array $r ): void {
 		$email   = (bool) SecurityWP_Features::get( SecurityWP_Integrity::FEATURE, 'email_alert', true );
@@ -259,6 +269,18 @@ class SecurityWP_Integrity_Admin {
 				'dashicons-warning',
 				__( 'No alert channel is configured', 'ini-protector' ),
 				__( 'Changes are recorded on this server and nowhere else. An attacker who can write to the filesystem and the database can rewrite that record. Turn on the email alert (or set a webhook) in the INI Protector settings so every change leaves the server the moment it is found.', 'ini-protector' )
+			);
+		}
+
+		// A webhook pointing inside the network is a legitimate setup (an internal collector) and
+		// a red flag (a URL nobody meant to set), and only the person reading this page can tell
+		// which. So: say it plainly, once, and let them decide — rather than silently allowing it
+		// or silently refusing it.
+		if ( '' !== $webhook && $this->is_private_host( $webhook ) ) {
+			$this->warn(
+				'dashicons-admin-site-alt3',
+				__( 'The webhook points to a private address', 'ini-protector' ),
+				__( 'Integrity reports are being POSTed to an address inside your own network rather than to the public internet. That is correct if you run a collector there. If you did not set this deliberately, treat it as suspicious and clear it: the webhook is stored in the database, so anyone who reached your settings could have pointed it somewhere of their choosing.', 'ini-protector' )
 			);
 		}
 

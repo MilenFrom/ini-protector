@@ -29,11 +29,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class SecurityWP_Traffic_Log {
 
-	// Defaults: keep 90 days, with no additional row cap. These are only the
-	// fallback for the (impossible) case where the feature catalog isn't loaded — the values a site
-	// actually gets come from the 'retention_days' / 'max_rows' config fields, which declare the
-	// same defaults. Keep the two in step.
-	const MAX_ROWS       = 0;     // DEFAULT row cap    (config 'max_rows',       0 = no cap)
+	// Defaults: keep 90 days, and at most 250,000 rows (~90 MB at a measured 372 bytes/row).
+	// These are only the fallback for the (impossible) case where the feature catalog isn't
+	// loaded — the values a site actually gets come from the 'retention_days' / 'max_rows'
+	// config fields, which declare the same defaults. Keep the two in step.
+	//
+	// The row cap is deliberately NOT 0. Age alone does not bound this table: at 5,000 requests
+	// a day, 90 days is roughly 450,000 rows, and a busy site can reach tens of millions before
+	// anything deletes. "No limit" remains available, but as something an administrator chooses
+	// rather than something they inherit by not looking.
+	const MAX_ROWS       = 250000; // DEFAULT row cap    (config 'max_rows',       0 = no cap)
 	const RETENTION_DAYS = 90;     // DEFAULT age limit  (config 'retention_days', 0 = keep forever)
 	const SCHEMA_VERSION = 1;
 	const OPT_SCHEMA     = 'secwp_traffic_schema';
@@ -426,10 +431,29 @@ class SecurityWP_Traffic_Log {
 				$wpdb->prepare( "SELECT id FROM {$table} ORDER BY id DESC LIMIT 1 OFFSET %d", $max_rows )
 			);
 			if ( $min_keep ) {
-				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE id <= %d", (int) $min_keep ) );
+				// The cap is a STORAGE bound, not a licence to starve the feature that reads this
+				// table. Auto-block scores a fixed look-back window, so if the cap were allowed to
+				// cut into it, a busy site would silently hand the blocker a partial picture — and
+				// the busier the site, the less it would see, which is precisely backwards. Rows
+				// inside that window survive the cap; it catches up as soon as they age out.
+				$keep_since = self::cutoff( self::blocker_window_seconds() );
+				$wpdb->query(
+					// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$wpdb->prepare( "DELETE FROM {$table} WHERE id <= %d AND created_at < %s", (int) $min_keep, $keep_since )
+				);
 			}
 		}
+	}
+
+	/**
+	 * How far back the auto-block engine scores, in seconds.
+	 *
+	 * Read from the blocker itself rather than restated here, so the two cannot drift: if the
+	 * evaluation window is ever widened, the pruner protects the wider window automatically.
+	 */
+	private static function blocker_window_seconds(): int {
+		$hours = defined( 'SecurityWP_Autoblock::EVAL_HOURS' ) ? (int) SecurityWP_Autoblock::EVAL_HOURS : 24;
+		return max( 1, $hours ) * HOUR_IN_SECONDS;
 	}
 
 	/**

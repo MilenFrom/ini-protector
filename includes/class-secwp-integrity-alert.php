@@ -272,9 +272,44 @@ class SecurityWP_Integrity_Alert {
 	/* Webhook                                                                */
 	/* --------------------------------------------------------------------- */
 
+	/**
+	 * The one destination a collector never legitimately lives at.
+	 *
+	 * Private ranges stay allowed on purpose — an internal collector on 10.x or a box on the LAN
+	 * is a real deployment, and refusing it would silently disable the channel (see the note on
+	 * wp_http_validate_url above). Link-local is different: 169.254.0.0/16 is the cloud metadata
+	 * endpoint on every major host, it has no collector use, and it is the single address that
+	 * turns "an admin picked a bad URL" into "an admin picked a URL that talks to the instance
+	 * credentials". Nothing is lost by refusing it.
+	 *
+	 * This is defence in depth, not a boundary: the request is already POST-only, non-redirecting,
+	 * and returns nothing but a 2xx/not-2xx boolean, and the URL can only be set by an
+	 * administrator. It closes the one case where that boolean would be worth having.
+	 */
+	private static function is_link_local( string $host ): bool {
+		$host = trim( $host, '[]' );
+		if ( ! filter_var( $host, FILTER_VALIDATE_IP ) ) {
+			return false; // A name, not a literal. Resolution is the host's business, not ours.
+		}
+		if ( filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) ) {
+			return 0 === strpos( $host, '169.254.' );
+		}
+		$packed = @inet_pton( $host ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		if ( false === $packed || 16 !== strlen( $packed ) ) {
+			return false;
+		}
+		// fe80::/10 — the first ten bits are 1111111010.
+		$first  = ord( $packed[0] );
+		$second = ord( $packed[1] );
+		return 0xfe === $first && 0x80 === ( $second & 0xc0 );
+	}
+
 	private static function send_webhook( string $url, array $report, array $changes ): bool {
 		$parts = wp_parse_url( $url );
 		if ( empty( $parts['host'] ) || ! in_array( strtolower( (string) ( $parts['scheme'] ?? '' ) ), array( 'http', 'https' ), true ) ) {
+			return false;
+		}
+		if ( self::is_link_local( (string) $parts['host'] ) ) {
 			return false;
 		}
 
