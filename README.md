@@ -21,6 +21,15 @@ Optional, defined in `wp-config.php`:
 | `SECWP_TRUST_PROXY` | Legacy boolean form. Still honoured, but it cannot verify who sent the header, so it is limited to public addresses and reported as a warning by Security → Scan. Prefer `SECWP_TRUSTED_PROXIES`. |
 | `SECWP_VULN_API_BASE` | Override the vulnerability database endpoint. |
 
+## Traffic log sizing
+
+The traffic monitor is bounded by two limits, and whichever is reached first
+applies: **90 days** of history and **250,000 requests** (roughly 90 MB). On a
+busy site the row cap is usually the one that bites. Either can be set to "no
+limit" in Configure → Traffic monitor; the Traffic page shows current usage and
+projects growth. Requests inside the auto-block evaluation window are never
+deleted by the row cap, so lowering it cannot starve automatic blocking.
+
 ```php
 define( 'SECWP_TRUSTED_PROXIES', '173.245.48.0/20, 2400:cb00::/32' );
 ```
