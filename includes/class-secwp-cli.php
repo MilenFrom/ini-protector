@@ -4,11 +4,11 @@
  *
  * The integrity scan exists partly BECAUSE WP-Cron cannot be trusted: on a site
  * with DISABLE_WP_CRON set it never fires, and on any site it depends on traffic.
- * `wp secwp integrity scan` is the supported way to drive it from system cron,
+ * `wp inipr integrity scan` is the supported way to drive it from system cron,
  * and it exits 1 when changes are found so a monitoring system can act on the
  * status code alone.
  *
- * `wp secwp asset-salt rotate` exists for the same reason in reverse: it belongs
+ * `wp inipr asset-salt rotate` exists for the same reason in reverse: it belongs
  * at the end of a deploy script, where no admin is sitting in front of a button.
  *
  * @package INI Protector
@@ -60,9 +60,9 @@ class SecurityWP_CLI_Integrity {
 	 * ## EXAMPLES
 	 *
 	 *     # From system cron, hourly at :17
-	 *     17 * * * * cd /var/www/site && wp secwp integrity scan --only-changes
+	 *     17 * * * * cd /var/www/site && wp inipr integrity scan --only-changes
 	 *
-	 *     wp secwp integrity scan --format=json
+	 *     wp inipr integrity scan --format=json
 	 *
 	 * @when after_wp_load
 	 */
@@ -390,7 +390,7 @@ class SecurityWP_CLI_2FA {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp secwp 2fa reset admin --yes
+	 *     wp inipr 2fa reset admin --yes
 	 *
 	 * @when after_wp_load
 	 */
@@ -492,7 +492,7 @@ class SecurityWP_CLI_Asset_Salt {
 	 * ## EXAMPLES
 	 *
 	 *     # At the end of a deploy, after files are synced
-	 *     wp secwp asset-salt rotate
+	 *     wp inipr asset-salt rotate
 	 *
 	 * @when after_wp_load
 	 */
@@ -584,3 +584,158 @@ class SecurityWP_CLI_Asset_Salt {
 }
 
 WP_CLI::add_command( 'secwp asset-salt', 'SecurityWP_CLI_Asset_Salt' );
+
+/**
+ * Export, import and undo INI Protector settings — the same file and rules as
+ * INI Protector → Utilities → Export / import settings.
+ */
+class SecurityWP_CLI_Settings {
+
+	/**
+	 * Export the settings as JSON, to a file or to standard output.
+	 *
+	 * Holds which protections are on and their configuration. Never holds traffic history,
+	 * the integrity baseline, scan results, IP blocks or two-factor secrets.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [<file>]
+	 * : Write here instead of standard output. Created with mode 0600.
+	 *
+	 * [--include-secrets]
+	 * : Also export the site password and webhook secret, in plain text.
+	 *
+	 * [--force]
+	 * : Overwrite <file> if it exists.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp inipr settings export settings.json
+	 *     wp inipr settings export | ssh other-host 'cd /var/www/site && wp inipr settings import - --yes'
+	 *
+	 * @when after_wp_load
+	 */
+	public function export( $args, $assoc ) {
+		$secrets = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'include-secrets', false );
+		$json    = SecurityWP_Settings_Transfer::export_json( $secrets ) . "\n";
+		do_action( 'secwp_platform_event', 'settings_exported', $secrets ? 'Settings exported, including secrets' : 'Settings exported (secrets left out)', array( 'via' => 'wp-cli', 'secrets' => $secrets ) );
+		if ( empty( $args[0] ) || '-' === $args[0] ) {
+			WP_CLI::line( rtrim( $json ) );
+			return;
+		}
+		$file = $args[0];
+		if ( file_exists( $file ) && ! WP_CLI\Utils\get_flag_value( $assoc, 'force', false ) ) {
+			WP_CLI::error( sprintf( '%s already exists. Use --force to overwrite it.', $file ) );
+		}
+		$old = umask( 0077 );
+		$ok  = false !== file_put_contents( $file, $json ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- CLI writes where the operator asked.
+		umask( $old );
+		if ( ! $ok ) {
+			WP_CLI::error( sprintf( 'Could not write %s.', $file ) );
+		}
+		chmod( $file, 0600 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod
+		WP_CLI::success( sprintf( 'Settings exported to %s%s.', $file, $secrets ? ' (including secrets — keep it private)' : ' (secrets left out)' ) );
+	}
+
+	/**
+	 * Import settings from an export file. Shows every change first.
+	 *
+	 * Settings the file does not contain are left as they are, and secrets are never
+	 * cleared. The current settings are kept so `wp inipr settings undo` can restore them.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <file>
+	 * : The export file, or - to read standard input.
+	 *
+	 * [--dry-run]
+	 * : Show the changes and stop.
+	 *
+	 * [--yes]
+	 * : Apply without asking.
+	 *
+	 * @when after_wp_load
+	 */
+	public function import( $args, $assoc ) {
+		$file = $args[0];
+		if ( '-' === $file ) {
+			$json = (string) stream_get_contents( STDIN, SecurityWP_Settings_Transfer::MAX_BYTES + 1 );
+		} else {
+			if ( ! is_readable( $file ) ) {
+				WP_CLI::error( sprintf( 'Cannot read %s.', $file ) );
+			}
+			$json = (string) file_get_contents( $file, false, null, 0, SecurityWP_Settings_Transfer::MAX_BYTES + 1 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Local file named by the operator.
+		}
+		$parsed = SecurityWP_Settings_Transfer::parse( $json );
+		if ( is_wp_error( $parsed ) ) {
+			WP_CLI::error( $parsed->get_error_message() );
+		}
+		WP_CLI::log( sprintf( 'From %s (INI Protector %s, %s). Secrets %s.', $parsed['site'] ?: 'unknown site', $parsed['plugin_version'] ?: '?', $parsed['exported_at'] ?: 'unknown time', $parsed['secrets_included'] ? 'included' : 'not included — this site keeps its own' ) );
+		if ( $parsed['ignored'] ) {
+			WP_CLI::warning( 'Not known to this version, skipped: ' . implode( ', ', $parsed['ignored'] ) );
+		}
+		$rows = SecurityWP_Settings_Transfer::diff( $parsed );
+		if ( ! $rows ) {
+			WP_CLI::success( 'The file matches the current settings — nothing to change.' );
+			return;
+		}
+		$table = array();
+		foreach ( $rows as $r ) {
+			$table[] = array(
+				'protection' => $r['label'],
+				'setting'    => '' !== $r['field'] ? $r['field'] : 'Enabled',
+				'now'        => $r['from'],
+				'after'      => $r['to'],
+				'check'      => $r['sensitive'] ? '!' : '',
+			);
+		}
+		WP_CLI\Utils\format_items( 'table', $table, array( 'protection', 'setting', 'now', 'after', 'check' ) );
+		if ( array_filter( wp_list_pluck( $rows, 'sensitive' ) ) ) {
+			WP_CLI::warning( 'Rows marked ! change how people sign in, or who is let in or blocked.' );
+		}
+		if ( WP_CLI\Utils\get_flag_value( $assoc, 'dry-run', false ) ) {
+			WP_CLI::success( sprintf( 'Dry run: %d change(s) not applied.', count( $rows ) ) );
+			return;
+		}
+		WP_CLI::confirm( sprintf( 'Apply %d change(s)?', count( $rows ) ), $assoc );
+		$applied = SecurityWP_Settings_Transfer::apply( $parsed, 'wp-cli' );
+		$login   = SecurityWP_Settings_Transfer::login_notice();
+		if ( '' !== $login ) {
+			WP_CLI::log( 'Login address: ' . $login );
+		}
+		WP_CLI::success( sprintf( '%d change(s) applied. Undo with: wp inipr settings undo', count( $applied ) ) );
+	}
+
+	/**
+	 * Put the settings back as they were before the last import.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--yes]
+	 * : Skip the confirmation prompt.
+	 *
+	 * @when after_wp_load
+	 */
+	public function undo( $args, $assoc ) {
+		$undo = SecurityWP_Settings_Transfer::undo_point();
+		if ( ! $undo ) {
+			WP_CLI::error( 'There is no import to undo.' );
+		}
+		WP_CLI::confirm( sprintf( 'Restore the settings from before the import of %s?', wp_date( 'Y-m-d H:i', (int) $undo['time'] ) ), $assoc );
+		SecurityWP_Settings_Transfer::undo( 'wp-cli' );
+		$login = SecurityWP_Settings_Transfer::login_notice();
+		if ( '' !== $login ) {
+			WP_CLI::log( 'Login address: ' . $login );
+		}
+		WP_CLI::success( 'Settings restored to before the last import.' );
+	}
+}
+
+// Public name is `wp inipr`; `wp secwp` (the plugin's former name) stays as an alias.
+foreach ( array( 'inipr', 'secwp' ) as $secwp_cli_ns ) {
+	WP_CLI::add_command( $secwp_cli_ns . ' settings', 'SecurityWP_CLI_Settings' );
+}
+WP_CLI::add_command( 'inipr integrity', 'SecurityWP_CLI_Integrity' );
+WP_CLI::add_command( 'inipr 2fa', 'SecurityWP_CLI_2FA' );
+WP_CLI::add_command( 'inipr asset-salt', 'SecurityWP_CLI_Asset_Salt' );
+unset( $secwp_cli_ns );

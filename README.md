@@ -58,10 +58,32 @@ After rotating those salts, sign in with an unused recovery code, turn off 2FA
 from your profile with a second unused recovery code in the confirmation box and
 save, then enroll again and save the new recovery codes.
 Without a recovery code, an authorized administrator can reset enrollment with
-`wp secwp 2fa reset <user>`. Unreadable secrets do not silently disable 2FA.
+`wp inipr 2fa reset <user>`. Unreadable secrets do not silently disable 2FA.
 
 Pending sign-ins and site-password cookies may also be invalidated: restart login
 or re-enter the site password. Reload an open CAPTCHA form for a fresh challenge.
+
+## Settings export and import
+
+**INI Protector → Utilities → Export / import settings** downloads the plugin's
+configuration (which protections are on and their fields) as JSON. Traffic
+history, the integrity baseline, scan results, IP blocks and two-factor secrets
+are never included. The site password and webhook secret are left out unless
+**Include secrets** is ticked; an import never clears a secret.
+
+Importing shows every change first, highlights the ones that affect sign-in or
+blocking, applies the rest through the same validation and side effects as the
+settings screen, and keeps the previous settings for **Undo last import**.
+Settings missing from the file are left as they are.
+
+```sh
+wp inipr settings export settings.json            # mode 0600; --include-secrets to add them
+wp inipr settings import settings.json --dry-run  # show the changes only
+wp inipr settings import settings.json --yes
+wp inipr settings undo --yes
+```
+
+`wp secwp …` remains an alias for every `wp inipr …` command.
 
 ## Development installation
 

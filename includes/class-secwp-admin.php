@@ -222,8 +222,8 @@ class SecurityWP_Admin {
 		$this->redirect( 'saved', $this->return_page() );
 	}
 
-	/** Side effects that some tweaks need on change. */
-	private function after_change( string $key, bool $on ): void {
+	/** Side effects that some tweaks need on change. Also run by settings import (SecurityWP_Settings_Transfer). */
+	public static function after_change( string $key, bool $on ): void {
 		if ( 'hide_login' === $key ) {
 			flush_rewrite_rules();
 		}

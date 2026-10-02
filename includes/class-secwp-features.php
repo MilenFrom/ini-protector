@@ -192,7 +192,7 @@ class SecurityWP_Features {
 			'two_factor'          => array(
 				'cat'    => 'security',
 				'label'  => 'Two-factor authentication',
-				'desc'   => 'Add a time-based one-time code (TOTP) to sign-in, using any standard authenticator app — Google Authenticator, 1Password, Aegis, Bitwarden. The password is checked first, then the code is asked for before any session is created. Each user turns it on from their own profile; the roles ticked below must. Recovery codes are issued at setup, and “wp secwp 2fa reset <user>” restores access from the shell if a phone is lost.',
+				'desc'   => 'Add a time-based one-time code (TOTP) to sign-in, using any standard authenticator app — Google Authenticator, 1Password, Aegis, Bitwarden. The password is checked first, then the code is asked for before any session is created. Each user turns it on from their own profile; the roles ticked below must. Recovery codes are issued at setup, and “wp inipr 2fa reset <user>” restores access from the shell if a phone is lost.',
 				'fields' => array(
 					'roles' => array(
 						'type'    => 'roles',
@@ -219,7 +219,7 @@ class SecurityWP_Features {
 							'daily'      => 'Once a day',
 							'off'        => 'Manually / from system cron only',
 						),
-						'desc'    => 'Uses WP-Cron. If WP-Cron is disabled on this site, run “wp secwp integrity scan” from system cron instead — the File integrity page prints the exact line.',
+						'desc'    => 'Uses WP-Cron. If WP-Cron is disabled on this site, run “wp inipr integrity scan” from system cron instead — the File integrity page prints the exact line.',
 					),
 					'email_alert'    => array( 'type' => 'checkbox', 'label' => 'Email me every change', 'default' => true, 'desc' => 'The point of this feature: the report leaves the server before the baseline is updated, so it survives an attacker who owns the site. Turning this off leaves the record on the server only, where it can be rewritten.' ),
 					'email_to'       => array( 'type' => 'email', 'label' => 'Alert recipient', 'desc' => 'Where to send the report. Leave blank to use the site admin email. A mailbox off this server is best.' ),
@@ -305,9 +305,24 @@ class SecurityWP_Features {
 
 	/** Save config values for a tweak (only known fields are kept). */
 	public static function set_config( string $key, array $values ): bool {
+		$clean = self::clean_config( $key, $values );
+		if ( null === $clean ) {
+			return false;
+		}
+		$saved         = (array) get_option( self::OPT_CONFIG, array() );
+		$saved[ $key ] = $clean;
+		update_option( self::OPT_CONFIG, $saved, false );
+		return true;
+	}
+
+	/**
+	 * What set_config() would store for these values, without saving (null for a key with no
+	 * fields). Settings import uses it to preview changes.
+	 */
+	public static function clean_config( string $key, array $values ): ?array {
 		$catalog = self::catalog();
 		if ( ! isset( $catalog[ $key ]['fields'] ) ) {
-			return false;
+			return null;
 		}
 		$fields  = $catalog[ $key ]['fields'];
 		$saved   = (array) get_option( self::OPT_CONFIG, array() );
@@ -356,9 +371,7 @@ class SecurityWP_Features {
 			}
 		}
 
-		$saved[ $key ] = $clean;
-		update_option( self::OPT_CONFIG, $saved, false );
-		return true;
+		return $clean;
 	}
 
 	private static function sanitize_field( string $type, $value, array $def = array() ) {
