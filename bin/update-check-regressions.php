@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/class-secwp-manual-update.php';
 define( 'SECWP_BASENAME', 'ini-protector/ini-protector.php' );
 require_once __DIR__ . '/../includes/class-secwp-admin.php';
 require_once ABSPATH . 'wp-admin/includes/screen.php';
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
 function secwp_update_assert( $condition, $message ) {
 	if ( ! $condition ) {
@@ -72,8 +73,24 @@ try {
 		set_current_screen( 'plugins' );
 		$_GET['secwp_update_check'] = $expected;
 		ob_start(); $admin->update_notice(); $html = ob_get_clean();
-		if ( 'available' === $scenario ) { secwp_update_assert( false !== strpos( $html, '1.9.3' ) && false !== strpos( $html, 'secwp_install_update' ), 'new version has explicit install link' ); }
-		secwp_update_assert( false !== strpos( $html, 'INI Protector' ), "$scenario displays feedback" );
+		ob_start(); SecurityWP_Manual_Update::update_row( SECWP_BASENAME ); $row = ob_get_clean();
+		if ( 'available' === $scenario ) {
+			secwp_update_assert( '' === $html, 'available release adds no banner' );
+			secwp_update_assert( false !== strpos( $row, 'plugin-update-tr' ) && false !== strpos( $row, 'notice-warning' ) && false !== strpos( $row, '1.9.3' ) && false !== strpos( $row, 'secwp_install_update' ), 'available release shows native update row with install link' );
+			secwp_update_assert( false === strpos( $row, 'update-link' ), 'update row does not hand off to core AJAX updater' );
+			$core = (object) array( 'response' => array( SECWP_BASENAME => (object) array( 'new_version' => '1.9.3' ) ) );
+			set_site_transient( 'update_plugins', $core );
+			ob_start(); SecurityWP_Manual_Update::update_row( SECWP_BASENAME ); $hidden = ob_get_clean();
+			secwp_update_assert( '' === $hidden, 'row yields to core once it lists the release' );
+			set_site_transient( 'update_plugins', $original );
+			wp_set_current_user( 0 );
+			ob_start(); SecurityWP_Manual_Update::update_row( SECWP_BASENAME ); $hidden = ob_get_clean();
+			secwp_update_assert( '' === $hidden, 'row hidden without update permission' );
+			wp_set_current_user( 1 );
+		} else {
+			secwp_update_assert( false !== strpos( $html, 'INI Protector' ), "$scenario displays feedback" );
+			secwp_update_assert( '' === $row, "$scenario shows no update row" );
+		}
 	}
 	secwp_update_assert( $original == get_site_transient( 'update_plugins' ), 'manual checks do not modify shared update cache' );
 } finally {

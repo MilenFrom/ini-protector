@@ -30,6 +30,8 @@ class SecurityWP_Admin {
 		add_action( 'admin_action_secwp_install_update', array( 'SecurityWP_Manual_Update', 'install' ) );
 		add_action( 'admin_notices', array( $this, 'update_notice' ) );
 		add_action( 'network_admin_notices', array( $this, 'update_notice' ) );
+		add_action( 'after_plugin_row_' . SECWP_BASENAME, array( 'SecurityWP_Manual_Update', 'update_row' ) );
+		add_action( 'admin_print_styles-plugins.php', array( 'SecurityWP_Manual_Update', 'row_style' ) );
 	}
 
 	/** Enqueue the toggle script on our settings page only. */
@@ -148,8 +150,7 @@ class SecurityWP_Admin {
 			'failed'    => __( 'Could not confirm the latest INI Protector version from WordPress.org. Please try again later.', 'ini-protector' ),
 		);
 		if ( 'available' === $result ) {
-			SecurityWP_Manual_Update::offer_notice();
-			return;
+			return; // Shown as the update row under the plugin (SecurityWP_Manual_Update::update_row()).
 		}
 		if ( isset( $messages[ $result ] ) ) {
 			printf( '<div class="notice notice-%s is-dismissible"><p>%s</p></div>', in_array( $result, array( 'failed', 'incompatible' ), true ) ? 'warning' : 'success', esc_html( $messages[ $result ] ) );

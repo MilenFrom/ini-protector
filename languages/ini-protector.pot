@@ -2,23 +2,23 @@
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: INI Protector 1.9.7\n"
+"Project-Id-Version: INI Protector 1.10.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ini-protector\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-02T14:34:22+00:00\n"
+"POT-Creation-Date: 2026-10-02T18:00:00+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: ini-protector\n"
 
 #. Plugin Name of the plugin
 #: ini-protector.php
-#: includes/class-secwp-admin.php:93
-#: includes/class-secwp-admin.php:94
-#: includes/class-secwp-admin.php:299
+#: includes/class-secwp-admin.php:95
+#: includes/class-secwp-admin.php:96
+#: includes/class-secwp-admin.php:300
 #: includes/class-secwp-integrity-admin.php:152
 #: includes/class-secwp-vuln-admin.php:140
 msgid "INI Protector"
@@ -39,268 +39,288 @@ msgstr ""
 msgid "https://iniwp.com"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:155
+#: includes/class-secwp-2fa.php:199
 msgid "<strong>Error:</strong> This account uses two-factor authentication, which cannot be completed over this connection. Use an application password instead."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:212
+#: includes/class-secwp-2fa.php:256
 msgid "Too many incorrect codes. Wait a few minutes and sign in again."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:233
+#: includes/class-secwp-2fa.php:277
 msgid "That code was not correct. Codes change every 30 seconds — check your device clock if this keeps happening."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:249
+#: includes/class-secwp-2fa.php:293
 msgid "You have logged in successfully."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:282
-#: includes/class-secwp-2fa.php:343
-#: includes/class-secwp-2fa.php:565
+#: includes/class-secwp-2fa.php:326
+#: includes/class-secwp-2fa.php:387
+#: includes/class-secwp-2fa.php:610
 msgid "Two-factor authentication"
 msgstr ""
 
 #. translators: %s: user login name.
-#: includes/class-secwp-2fa.php:303
+#: includes/class-secwp-2fa.php:347
 #, php-format
 msgid "Signing in as %s. Enter the current code from your authenticator app."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:309
+#: includes/class-secwp-2fa.php:353
 msgid "Your authenticator setup is no longer readable. This can happen after the site’s security salts change. Enter an unused recovery code to sign in, then reset and set up two-factor authentication again from your profile. If you have no recovery codes, contact the site administrator."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:313
+#: includes/class-secwp-2fa.php:357
 msgid "Authentication code"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:320
+#: includes/class-secwp-2fa.php:364
 msgid "Verify"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:323
+#: includes/class-secwp-2fa.php:367
 msgid "Lost your device? Enter one of your recovery codes in the same box."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:327
+#: includes/class-secwp-2fa.php:371
 msgid "← Start over"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:519
+#: includes/class-secwp-2fa.php:564
 msgid "Two-factor authentication is required for your account."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:520
+#: includes/class-secwp-2fa.php:565
 msgid "Set it up below to continue using the site."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:529
+#: includes/class-secwp-2fa.php:574
 msgid "2FA"
 msgstr ""
 
 #. translators: %d: number of unused recovery codes.
-#: includes/class-secwp-2fa.php:541
+#: includes/class-secwp-2fa.php:586
 #, php-format
 msgid "On · %d recovery code left"
 msgid_plural "On · %d recovery codes left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-secwp-2fa.php:548
+#: includes/class-secwp-2fa.php:593
 msgid "Required — not set up"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:550
+#: includes/class-secwp-2fa.php:595
 msgid "Off"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:572
+#: includes/class-secwp-2fa.php:617
 msgid "That code was not correct, so two-factor authentication was not turned on. Your key below is unchanged — just enter the next code your app shows."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:588
-#: includes/class-secwp-2fa.php:600
+#: includes/class-secwp-2fa.php:624
+msgid "Nothing was changed: turning two-factor authentication off or replacing recovery codes needs your current authenticator code (or a recovery code) in the confirmation box."
+msgstr ""
+
+#: includes/class-secwp-2fa.php:640
+#: includes/class-secwp-2fa.php:652
 #: includes/class-secwp-traffic-admin.php:437
 #: includes/class-secwp-traffic-admin.php:672
 msgid "Status"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:589
+#: includes/class-secwp-2fa.php:641
 msgid "Not set up. Only the account holder can turn two-factor authentication on, because it needs their authenticator app."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:601
+#: includes/class-secwp-2fa.php:653
 msgid "On"
 msgstr ""
 
 #. translators: %s: date.
-#: includes/class-secwp-2fa.php:604
+#: includes/class-secwp-2fa.php:656
 #, php-format
 msgid "since %s"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:610
+#: includes/class-secwp-2fa.php:662
 msgid "This account’s secret can no longer be read."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:611
+#: includes/class-secwp-2fa.php:663
 msgid "That happens when the site’s security salts in wp-config.php are changed. Sign in with a recovery code (or have an administrator reset 2FA from WP-CLI), then set it up again."
 msgstr ""
 
 #. translators: %d: unused recovery codes.
-#: includes/class-secwp-2fa.php:620
+#: includes/class-secwp-2fa.php:672
 #, php-format
 msgid "%d unused recovery code remaining."
 msgid_plural "%d unused recovery codes remaining."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-secwp-2fa.php:626
+#: includes/class-secwp-2fa.php:678
 msgid "Running low — generate a new set and store them somewhere other than the device holding your codes."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:631
+#: includes/class-secwp-2fa.php:683
 msgid "Recovery codes"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:633
+#: includes/class-secwp-2fa.php:685
 msgid "Generate a new set of recovery codes when I save this page"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:634
+#: includes/class-secwp-2fa.php:686
 msgid "The previous set stops working immediately."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:638
+#: includes/class-secwp-2fa.php:690
 msgid "Turn off"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:640
+#: includes/class-secwp-2fa.php:692
 msgid "Turn off two-factor authentication for this account"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:643
+#: includes/class-secwp-2fa.php:695
 msgid "This account’s role requires two-factor authentication — turning it off will send it straight back to this page to set it up again."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:659
-#: includes/class-secwp-2fa.php:670
+#: includes/class-secwp-2fa.php:702
+msgid "Confirm with your code"
+msgstr ""
+
+#: includes/class-secwp-2fa.php:704
+msgid "Required for either change above: the current code from your authenticator app, or one of your recovery codes."
+msgstr ""
+
+#: includes/class-secwp-2fa.php:719
+#: includes/class-secwp-2fa.php:730
 msgid "Set up"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:660
+#: includes/class-secwp-2fa.php:720
 msgid "Two-factor authentication cannot be set up on this server."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:661
+#: includes/class-secwp-2fa.php:721
 msgid "The authenticator secret could not be encrypted, and INI Protector will not store it unprotected. Ask your host to enable PHP’s sodium extension, then reload this page."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:668
+#: includes/class-secwp-2fa.php:728
 msgid "Two-factor setup code"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:673
+#: includes/class-secwp-2fa.php:733
 msgid "Required for your role."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:676
+#: includes/class-secwp-2fa.php:736
 msgid "1. Scan this with an authenticator app (Google Authenticator, 1Password, Aegis, Bitwarden — any of them)."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:688
+#: includes/class-secwp-2fa.php:748
 msgid "Or type this key in by hand:"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:692
+#: includes/class-secwp-2fa.php:752
 msgid "The QR code could not be drawn small enough for this site name, so enter the key by hand — it works exactly the same."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:695
+#: includes/class-secwp-2fa.php:755
 msgid "2. Enter the 6-digit code the app shows, then save this page."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:697
+#: includes/class-secwp-2fa.php:757
 msgid "000000"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:698
+#: includes/class-secwp-2fa.php:758
 msgid "Two-factor authentication only switches on once a correct code proves the app is set up — a half-finished setup can never lock you out. You will be given recovery codes at that point; keep them somewhere other than your phone."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:703
+#: includes/class-secwp-2fa.php:760
+msgid "Turning this on revokes this account’s existing application passwords."
+msgstr ""
+
+#: includes/class-secwp-2fa.php:760
+msgid "They were created without a second factor. Create new ones afterwards for any app that still needs one."
+msgstr ""
+
+#: includes/class-secwp-2fa.php:766
 msgid "Your recovery codes"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:705
+#: includes/class-secwp-2fa.php:768
 msgid "Save these now — they are shown once and never again."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:706
+#: includes/class-secwp-2fa.php:769
 msgid "Each code signs you in once if you lose your authenticator. Store them somewhere other than the device that holds the app."
 msgstr ""
 
-#: includes/class-secwp-admin.php:57
-#: includes/class-secwp-admin.php:77
-#: includes/class-secwp-admin.php:532
+#: includes/class-secwp-admin.php:59
+#: includes/class-secwp-admin.php:79
+#: includes/class-secwp-admin.php:531
 msgid "Protection enabled."
 msgstr ""
 
-#: includes/class-secwp-admin.php:58
-#: includes/class-secwp-admin.php:78
-#: includes/class-secwp-admin.php:533
+#: includes/class-secwp-admin.php:60
+#: includes/class-secwp-admin.php:80
+#: includes/class-secwp-admin.php:532
 msgid "Protection disabled."
 msgstr ""
 
-#: includes/class-secwp-admin.php:59
+#: includes/class-secwp-admin.php:61
 msgid "Could not save the change. Please try again."
 msgstr ""
 
-#: includes/class-secwp-admin.php:79
-#: includes/class-secwp-admin.php:534
+#: includes/class-secwp-admin.php:81
+#: includes/class-secwp-admin.php:533
 msgid "Settings saved."
 msgstr ""
 
-#: includes/class-secwp-admin.php:80
-#: includes/class-secwp-admin.php:190
-#: includes/class-secwp-admin.php:535
+#: includes/class-secwp-admin.php:82
+#: includes/class-secwp-admin.php:191
+#: includes/class-secwp-admin.php:534
 msgid "Unknown setting."
 msgstr ""
 
-#: includes/class-secwp-admin.php:107
+#: includes/class-secwp-admin.php:109
 #: includes/class-secwp-ip-block-admin.php:174
 #: includes/class-secwp-ip-block-admin.php:182
 msgid "Settings"
 msgstr ""
 
-#: includes/class-secwp-admin.php:120
+#: includes/class-secwp-admin.php:122
 msgid "Check for updates"
 msgstr ""
 
-#: includes/class-secwp-admin.php:128
-#: includes/class-secwp-manual-update.php:78
+#: includes/class-secwp-admin.php:130
+#: includes/class-secwp-manual-update.php:131
 msgid "You do not have permission to update plugins."
 msgstr ""
 
-#: includes/class-secwp-admin.php:145
+#: includes/class-secwp-admin.php:147
 msgid "A new INI Protector release is available from WordPress.org."
 msgstr ""
 
-#: includes/class-secwp-admin.php:146
+#: includes/class-secwp-admin.php:148
 msgid "INI Protector is up to date with the latest release available from WordPress.org."
 msgstr ""
 
-#: includes/class-secwp-admin.php:147
+#: includes/class-secwp-admin.php:149
 msgid "The latest INI Protector release requires a newer WordPress or PHP version. Update your environment before installing it."
 msgstr ""
 
-#: includes/class-secwp-admin.php:148
+#: includes/class-secwp-admin.php:150
 msgid "Could not confirm the latest INI Protector version from WordPress.org. Please try again later."
 msgstr ""
 
-#: includes/class-secwp-admin.php:183
-#: includes/class-secwp-admin.php:254
+#: includes/class-secwp-admin.php:184
+#: includes/class-secwp-admin.php:255
 #: includes/class-secwp-integrity-admin.php:61
 #: includes/class-secwp-ip-block-admin.php:73
 #: includes/class-secwp-traffic-admin.php:88
@@ -310,54 +330,54 @@ msgid "You do not have permission."
 msgstr ""
 
 #. translators: 1: enabled count, 2: total.
-#: includes/class-secwp-admin.php:306
+#: includes/class-secwp-admin.php:307
 #, php-format
 msgid "%1$d of %2$d protections enabled."
 msgstr ""
 
-#: includes/class-secwp-admin.php:326
+#: includes/class-secwp-admin.php:327
 msgid "Configure ▾"
 msgstr ""
 
-#: includes/class-secwp-admin.php:330
+#: includes/class-secwp-admin.php:331
 msgid "Not on Apache: add these rules to your server config"
 msgstr ""
 
-#: includes/class-secwp-admin.php:336
+#: includes/class-secwp-admin.php:337
 msgid "History set to \"Unlimited\". The database may become large."
 msgstr ""
 
-#: includes/class-secwp-admin.php:337
+#: includes/class-secwp-admin.php:338
 msgid "Clean traffic history in Utilities"
 msgstr ""
 
-#: includes/class-secwp-admin.php:378
+#: includes/class-secwp-admin.php:379
 msgid "Save settings"
 msgstr ""
 
-#: includes/class-secwp-admin.php:420
+#: includes/class-secwp-admin.php:421
 msgid "••••• (unchanged)"
 msgstr ""
 
-#: includes/class-secwp-admin.php:426
+#: includes/class-secwp-admin.php:427
 msgid "Remove the saved value"
 msgstr ""
 
-#: includes/class-secwp-admin.php:455
+#: includes/class-secwp-admin.php:454
 msgid "No public REST namespaces registered."
 msgstr ""
 
-#: includes/class-secwp-admin.php:475
+#: includes/class-secwp-admin.php:474
 msgid "Always public (cannot be blocked):"
 msgstr ""
 
-#: includes/class-secwp-admin.php:480
+#: includes/class-secwp-admin.php:479
 msgid "These keep the INI WP control panel and its plugins working; each has its own authentication."
 msgstr ""
 
-#: includes/class-secwp-altcha.php:188
-#: includes/class-secwp-altcha.php:197
-#: includes/class-secwp-altcha.php:211
+#: includes/class-secwp-altcha.php:184
+#: includes/class-secwp-altcha.php:193
+#: includes/class-secwp-altcha.php:207
 msgid "<strong>Error:</strong> Please complete the verification challenge."
 msgstr ""
 
@@ -366,7 +386,7 @@ msgid "Every 5 minutes (INI Protector auto-block)"
 msgstr ""
 
 #. translators: 1: level, 2: why
-#: includes/class-secwp-autoblock.php:232
+#: includes/class-secwp-autoblock.php:238
 #, php-format
 msgid "Auto-block L%1$d: %2$s"
 msgstr ""
@@ -429,7 +449,7 @@ msgid "Never checked. Run the first scan to establish the baseline."
 msgstr ""
 
 #: includes/class-secwp-integrity-admin.php:246
-#: includes/class-secwp-vuln-admin.php:317
+#: includes/class-secwp-vuln-admin.php:332
 msgid "Scan now"
 msgstr ""
 
@@ -458,179 +478,191 @@ msgid "Every configured channel failed, so the baseline was deliberately NOT upd
 msgstr ""
 
 #: includes/class-secwp-integrity-admin.php:298
-msgid "The file limit was reached"
+msgid "The baseline could not be saved"
 msgstr ""
 
 #: includes/class-secwp-integrity-admin.php:299
+msgid "The database rejected part of the last baseline update, so some files will be reported again on the next run. Check the database error log, and that the integrity table exists and is writable."
+msgstr ""
+
+#: includes/class-secwp-integrity-admin.php:306
+msgid "The file limit was reached"
+msgstr ""
+
+#: includes/class-secwp-integrity-admin.php:307
 msgid "Part of the tree was not hashed, so changes there would not be seen. Raise “Maximum files” or exclude a directory that does not hold code."
 msgstr ""
 
 #. translators: %d: number of unreadable files.
-#: includes/class-secwp-integrity-admin.php:308
+#: includes/class-secwp-integrity-admin.php:316
 #, php-format
 msgid "%d file could not be read"
 msgid_plural "%d files could not be read"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-secwp-integrity-admin.php:311
+#: includes/class-secwp-integrity-admin.php:319
 msgid "These are left in the baseline unchanged (they are not reported as deleted). Usually a permissions issue: "
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:332
+#: includes/class-secwp-integrity-admin.php:340
 msgid "Changes found in the last check"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:338
+#: includes/class-secwp-integrity-admin.php:346
 msgid "No scan has run yet. The first scan records a baseline — it does not report anything."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:340
+#: includes/class-secwp-integrity-admin.php:348
 msgid "Baseline recorded. From the next check onwards, any new, modified, or deleted code file is reported."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:342
+#: includes/class-secwp-integrity-admin.php:350
 msgid "No code file has been added, changed, or deleted since the last check."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:347
-#: includes/class-secwp-integrity-admin.php:412
+#: includes/class-secwp-integrity-admin.php:355
+#: includes/class-secwp-integrity-admin.php:420
 msgid "State"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:347
-#: includes/class-secwp-integrity-admin.php:412
+#: includes/class-secwp-integrity-admin.php:355
+#: includes/class-secwp-integrity-admin.php:420
 msgid "File"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:347
+#: includes/class-secwp-integrity-admin.php:355
 msgid "Size"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:347
+#: includes/class-secwp-integrity-admin.php:355
 msgid "Modified"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:347
+#: includes/class-secwp-integrity-admin.php:355
 msgid "SHA-256"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:363
+#: includes/class-secwp-integrity-admin.php:371
 msgid "critical location"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:366
+#: includes/class-secwp-integrity-admin.php:374
 msgid "Content changed without the timestamp moving — self-rewriting file or a forged mtime."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:380
+#: includes/class-secwp-integrity-admin.php:388
 msgid "Only the first 500 changes are stored. A change set this large is usually an update or a restore — re-baseline once you have confirmed it."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:385
+#: includes/class-secwp-integrity-admin.php:393
 msgid "Accept current state as the baseline"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:385
+#: includes/class-secwp-integrity-admin.php:393
 msgid "This marks every file on disk right now as known-good. Only do this once you have confirmed the changes are yours."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:387
+#: includes/class-secwp-integrity-admin.php:395
 msgid "Clear the baseline"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:387
+#: includes/class-secwp-integrity-admin.php:395
 msgid "Deletes the stored baseline. The next scan records a fresh one and reports nothing."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:393
+#: includes/class-secwp-integrity-admin.php:401
 msgid "State digest of this baseline:"
 msgstr ""
 
 #. translators: %d: report number.
-#: includes/class-secwp-integrity-admin.php:395
+#: includes/class-secwp-integrity-admin.php:403
 #, php-format
 msgid " (report #%d)"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:409
+#: includes/class-secwp-integrity-admin.php:417
 msgid "Recent change history"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:412
+#: includes/class-secwp-integrity-admin.php:420
 #: includes/class-secwp-utilities-admin.php:218
 msgid "When"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:412
+#: includes/class-secwp-integrity-admin.php:420
 msgid "Report"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:426
+#: includes/class-secwp-integrity-admin.php:434
 msgid "critical"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:440
+#: includes/class-secwp-integrity-admin.php:448
 msgid "Scheduling"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:444
+#: includes/class-secwp-integrity-admin.php:452
 msgid "Automatic checks are off — the scan only runs when you start it here or from WP-CLI."
 msgstr ""
 
 #. translators: 1: recurrence, 2: next run time.
-#: includes/class-secwp-integrity-admin.php:452
+#: includes/class-secwp-integrity-admin.php:460
 #, php-format
 msgid "Scheduled %1$s. Next run: %2$s."
 msgstr ""
 
 #. translators: %s: recurrence.
-#: includes/class-secwp-integrity-admin.php:456
+#: includes/class-secwp-integrity-admin.php:464
 #, php-format
 msgid "Scheduled %s — no event is queued yet."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:462
+#: includes/class-secwp-integrity-admin.php:470
 msgid "WP-Cron is disabled on this site (DISABLE_WP_CRON)."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:463
+#: includes/class-secwp-integrity-admin.php:471
 msgid "The schedule above will not fire on its own. Run the scan from system cron instead — the recommended setup anyway, because it does not depend on a visitor hitting the site:"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:466
+#: includes/class-secwp-integrity-admin.php:474
 msgid "You can also run the scan from system cron, which does not depend on site traffic:"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:474
+#: includes/class-secwp-integrity-admin.php:482
 msgid "The command exits with status 1 when changes are found and 0 when clean, so a monitoring system can act on it directly. Add --format=json for machine-readable output."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:513
+#: includes/class-secwp-integrity-admin.php:521
 msgid "Scan complete — no changes."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:514
+#: includes/class-secwp-integrity-admin.php:522
 msgid "Scan complete — changes were found. Review them below."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:515
+#: includes/class-secwp-integrity-admin.php:523
 msgid "Baseline updated to the current state of the site."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:516
+#: includes/class-secwp-integrity-admin.php:524
+msgid "Another integrity scan is already running. Try again when it finishes."
+msgstr ""
+
+#: includes/class-secwp-integrity-admin.php:525
 msgid "Baseline cleared. The next scan records a fresh one."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:517
+#: includes/class-secwp-integrity-admin.php:526
 msgid "Alert dismissed until the change set changes."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:518
+#: includes/class-secwp-integrity-admin.php:527
 msgid "Turn on file integrity monitoring first."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:519
+#: includes/class-secwp-integrity-admin.php:528
 #: includes/class-secwp-utilities-admin.php:296
 msgid "Unknown action."
 msgstr ""
@@ -827,7 +859,7 @@ msgid "IP"
 msgstr ""
 
 #: includes/class-secwp-ip-block-admin.php:218
-#: includes/class-secwp-vuln-admin.php:271
+#: includes/class-secwp-vuln-admin.php:286
 msgid "Severity"
 msgstr ""
 
@@ -919,19 +951,19 @@ msgid "IP unblocked."
 msgstr ""
 
 #: includes/class-secwp-ip-block-admin.php:356
-#: includes/class-secwp-ip-block.php:139
+#: includes/class-secwp-ip-block.php:162
 #: includes/class-secwp-traffic-admin.php:800
 msgid "You can’t block your own current IP address."
 msgstr ""
 
 #: includes/class-secwp-ip-block-admin.php:357
-#: includes/class-secwp-ip-block.php:136
+#: includes/class-secwp-ip-block.php:159
 #: includes/class-secwp-traffic-admin.php:801
 msgid "That is not a valid IP address."
 msgstr ""
 
 #: includes/class-secwp-ip-block-admin.php:358
-#: includes/class-secwp-ip-block.php:145
+#: includes/class-secwp-ip-block.php:188
 #: includes/class-secwp-traffic-admin.php:802
 msgid "The blocklist is full."
 msgstr ""
@@ -948,29 +980,33 @@ msgstr ""
 msgid "WordPress.org returned invalid release requirements."
 msgstr ""
 
-#: includes/class-secwp-manual-update.php:62
-msgid "Please check for INI Protector updates again to refresh the available release."
-msgstr ""
-
-#. translators: %s: available plugin version.
-#: includes/class-secwp-manual-update.php:69
+#. translators: 1: plugin name, 2: details URL, 3: link attributes, 4: version, 5: update URL, 6: link attributes.
+#: includes/class-secwp-manual-update.php:105
 #, php-format
-msgid "INI Protector %s is available from WordPress.org."
+msgid "There is a new version of %1$s available. <a href=\"%2$s\" %3$s>View version %4$s details</a> or <a href=\"%5$s\" %6$s>update now</a>."
 msgstr ""
 
-#: includes/class-secwp-manual-update.php:71
-msgid "Update now"
+#. translators: 1: plugin name, 2: version.
+#: includes/class-secwp-manual-update.php:109
+#, php-format
+msgid "View %1$s version %2$s details"
 msgstr ""
 
-#: includes/class-secwp-manual-update.php:87
+#. translators: %s: plugin name.
+#: includes/class-secwp-manual-update.php:113
+#, php-format
+msgid "Update %s now"
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:140
 msgid "This update is no longer available or compatible. Return to Plugins and check for updates again."
 msgstr ""
 
-#: includes/class-secwp-manual-update.php:92
+#: includes/class-secwp-manual-update.php:145
 msgid "Update INI Protector"
 msgstr ""
 
-#: includes/class-secwp-manual-update.php:121
+#: includes/class-secwp-manual-update.php:174
 msgid "The downloaded package does not match the selected INI Protector release."
 msgstr ""
 
@@ -1327,7 +1363,7 @@ msgid "Retention settings saved."
 msgstr ""
 
 #. translators: %d: number of login attempts from this IP
-#: includes/class-secwp-traffic-log.php:754
+#: includes/class-secwp-traffic-log.php:864
 #, php-format
 msgid "%d login attempt (brute-force)"
 msgid_plural "%d login attempts (brute-force)"
@@ -1335,7 +1371,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of 404 responses this IP received
-#: includes/class-secwp-traffic-log.php:759
+#: includes/class-secwp-traffic-log.php:869
 #, php-format
 msgid "%d 404 (scanning)"
 msgid_plural "%d 404s (scanning)"
@@ -1343,7 +1379,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of suspicious requests from this IP
-#: includes/class-secwp-traffic-log.php:764
+#: includes/class-secwp-traffic-log.php:874
 #, php-format
 msgid "%d suspicious request"
 msgid_plural "%d suspicious requests"
@@ -1351,7 +1387,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: total number of requests from this IP
-#: includes/class-secwp-traffic-log.php:769
+#: includes/class-secwp-traffic-log.php:879
 #, php-format
 msgid "%d request (flooding)"
 msgid_plural "%d requests (flooding)"
@@ -1359,7 +1395,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of distinct user-agents seen from this IP
-#: includes/class-secwp-traffic-log.php:775
+#: includes/class-secwp-traffic-log.php:885
 #, php-format
 msgid "%d distinct user-agent (rotating)"
 msgid_plural "%d distinct user-agents (rotating)"
@@ -1552,85 +1588,97 @@ msgstr ""
 msgid "The vulnerability scan is off. Turn on “Vulnerability scan” to check your installed plugins, themes, and WordPress core against the free WPVulnerability database once a day."
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:205
+#: includes/class-secwp-vuln-admin.php:208
 msgid "No scan has run yet. Click “Scan now” to check your components."
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:206
+#: includes/class-secwp-vuln-admin.php:210
 msgid "No known vulnerabilities found in your installed plugins, themes, or WordPress core. 🎉"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:230
+#: includes/class-secwp-vuln-admin.php:211
+msgid "No known vulnerabilities found in the components the database has data on."
+msgstr ""
+
+#: includes/class-secwp-vuln-admin.php:235
 msgid "No findings"
 msgstr ""
 
 #. translators: %s: human time diff.
-#: includes/class-secwp-vuln-admin.php:237
+#: includes/class-secwp-vuln-admin.php:242
 #, php-format
 msgid "Last scan: %s ago"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:240
+#: includes/class-secwp-vuln-admin.php:245
 msgid "Never scanned"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:251
+#: includes/class-secwp-vuln-admin.php:256
+msgid "Components the database gave no data on"
+msgstr ""
+
+#: includes/class-secwp-vuln-admin.php:257
+msgid "The vulnerability database answered with an error for these instead of a result. That is usual for custom and premium plugins it does not track, and can also be a temporary fault. Either way they are not confirmed safe. Findings from earlier scans are kept."
+msgstr ""
+
+#: includes/class-secwp-vuln-admin.php:266
 msgid "Components that could not be checked"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:252
+#: includes/class-secwp-vuln-admin.php:267
 msgid "These components could not be checked in the last scan (the database could not be reached, or the scan ran out of time), so they are not confirmed safe. Findings from earlier scans are kept. They will be retried on the next scan."
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:269
+#: includes/class-secwp-vuln-admin.php:284
 msgid "Known vulnerabilities"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:271
+#: includes/class-secwp-vuln-admin.php:286
 msgid "Component"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:271
+#: includes/class-secwp-vuln-admin.php:286
 msgid "Type"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:271
+#: includes/class-secwp-vuln-admin.php:286
 msgid "Installed"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:271
+#: includes/class-secwp-vuln-admin.php:286
 msgid "Reference"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:271
+#: includes/class-secwp-vuln-admin.php:286
 msgid "Fixed in"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:271
+#: includes/class-secwp-vuln-admin.php:286
 msgid "Update"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:299
+#: includes/class-secwp-vuln-admin.php:314
 msgid "Available"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:301
+#: includes/class-secwp-vuln-admin.php:316
 msgid "none"
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:307
+#: includes/class-secwp-vuln-admin.php:322
 msgid "Data from the WPVulnerability database (CC0). A finding means your installed version is within a known-affected range — update to the “Fixed in” version (or later) to clear it."
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:357
+#: includes/class-secwp-vuln-admin.php:372
 msgid "Scan complete."
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:358
+#: includes/class-secwp-vuln-admin.php:373
 msgid "Alert dismissed until the findings change."
 msgstr ""
 
-#: includes/class-secwp-vuln-admin.php:359
+#: includes/class-secwp-vuln-admin.php:374
 msgid "Turn on the vulnerability scan first."
 msgstr ""
 
