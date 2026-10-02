@@ -86,7 +86,7 @@ class SecurityWP_Features {
 			'security_headers'    => array(
 				'cat'    => 'security',
 				'label'  => 'Security headers',
-				'desc'   => 'Send hardening HTTP response headers on every front-end page: anti-clickjacking, MIME-sniffing protection, referrer and browser-feature policy. Each header is independently toggleable. If a header is already set by your server (Caddy/Nginx/Cloudflare) the connector won’t duplicate it.',
+				'desc'   => 'Send hardening HTTP response headers on every front-end page: anti-clickjacking, MIME-sniffing protection, referrer and browser-feature policy. Each header is independently toggleable. A header another plugin already set is left alone. Headers your web server or CDN adds (Caddy/Nginx/Cloudflare) can’t be seen from WordPress, so untick those here to avoid sending them twice.',
 				'fields' => array(
 					'x_frame_options'        => array( 'type' => 'checkbox', 'label' => 'X-Frame-Options', 'default' => true, 'desc' => 'Stop other sites from embedding your pages in a frame/iframe (clickjacking protection).' ),
 					'x_frame_value'          => array(

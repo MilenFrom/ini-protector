@@ -75,6 +75,9 @@ class SecurityWP_CLI_Integrity {
 		$notify = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'notify', true );
 
 		$report = ( new SecurityWP_Integrity() )->run_scan( array( 'notify' => $notify ) );
+		if ( 'busy' === ( $report['status'] ?? '' ) ) {
+			WP_CLI::error( 'Another integrity scan is already running.' );
+		}
 		$counts = $report['counts'];
 
 		if ( 'json' === $format ) {
@@ -156,6 +159,9 @@ class SecurityWP_CLI_Integrity {
 		WP_CLI::confirm( 'Mark every code file currently on disk as known-good?', $assoc );
 
 		$report = ( new SecurityWP_Integrity() )->run_scan( array( 'baseline' => true ) );
+		if ( 'busy' === ( $report['status'] ?? '' ) ) {
+			WP_CLI::error( 'Another integrity scan is already running.' );
+		}
 		WP_CLI::success(
 			sprintf(
 				'Baseline updated: %s files hashed in %ss. State digest %s',

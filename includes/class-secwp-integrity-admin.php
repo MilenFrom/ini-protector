@@ -74,13 +74,13 @@ class SecurityWP_Integrity_Admin {
 			case 'scan':
 				$this->raise_limits();
 				$report = ( new SecurityWP_Integrity() )->run_scan();
-				$msg    = ( ( $report['counts']['total'] ?? 0 ) > 0 ) ? 'changes' : 'clean';
+				$msg    = 'busy' === ( $report['status'] ?? '' ) ? 'busy' : ( ( ( $report['counts']['total'] ?? 0 ) > 0 ) ? 'changes' : 'clean' );
 				break;
 
 			case 'baseline':
 				$this->raise_limits();
-				( new SecurityWP_Integrity() )->run_scan( array( 'baseline' => true ) );
-				$msg = 'rebaselined';
+				$report = ( new SecurityWP_Integrity() )->run_scan( array( 'baseline' => true ) );
+				$msg    = 'busy' === ( $report['status'] ?? '' ) ? 'busy' : 'rebaselined';
 				break;
 
 			case 'reset':
@@ -521,6 +521,7 @@ class SecurityWP_Integrity_Admin {
 			'clean'       => array( 'success', __( 'Scan complete — no changes.', 'ini-protector' ) ),
 			'changes'     => array( 'warning', __( 'Scan complete — changes were found. Review them below.', 'ini-protector' ) ),
 			'rebaselined' => array( 'success', __( 'Baseline updated to the current state of the site.', 'ini-protector' ) ),
+			'busy'        => array( 'warning', __( 'Another integrity scan is already running. Try again when it finishes.', 'ini-protector' ) ),
 			'reset'       => array( 'success', __( 'Baseline cleared. The next scan records a fresh one.', 'ini-protector' ) ),
 			'dismissed'   => array( 'success', __( 'Alert dismissed until the change set changes.', 'ini-protector' ) ),
 			'disabled'    => array( 'error', __( 'Turn on file integrity monitoring first.', 'ini-protector' ) ),

@@ -33,6 +33,9 @@ class SecurityWP_IP_Block {
 	/** Safety cap so the option can't grow unbounded. */
 	const MAX = 500;
 
+	/** SecurityWP_Atomic lock serialising writes to the blocklist option. */
+	const LOCK = 'blocklist';
+
 	/* Where a block came from. */
 	const SOURCE_MANUAL     = 'manual';     // typed/clicked by an admin
 	const SOURCE_SUGGESTION = 'suggestion'; // admin clicked "Apply" on a suggestion
@@ -67,8 +70,22 @@ class SecurityWP_IP_Block {
 		// entries. A missing/0 'expires' means permanent — never expires.
 		$expires = (int) ( $list[ $ip ]['expires'] ?? 0 );
 		if ( $expires > 0 && time() >= $expires ) {
-			unset( $list[ $ip ] );
-			update_option( self::OPTION, $list, false );
+			// Under the blocklist lock and on a fresh read, or a visitor's tidy-up could write
+			// back a list that predates a block the cron or an admin just added. Busy: skip;
+			// the entry is already not enforced, and the next hit will prune it.
+			SecurityWP_Atomic::with_lock(
+				self::LOCK,
+				static function () use ( $ip ) {
+					$fresh = self::fresh_all();
+					$exp   = (int) ( $fresh[ $ip ]['expires'] ?? 0 );
+					if ( $exp > 0 && time() >= $exp ) {
+						unset( $fresh[ $ip ] );
+						update_option( self::OPTION, $fresh, false );
+					}
+				},
+				0.0,
+				false
+			);
 			return;
 		}
 
@@ -89,6 +106,12 @@ class SecurityWP_IP_Block {
 	public static function all(): array {
 		$list = get_option( self::OPTION, array() );
 		return is_array( $list ) ? $list : array();
+	}
+
+	/** The list straight from the database, past this request's option cache (for writers). */
+	private static function fresh_all(): array {
+		wp_cache_delete( self::OPTION, 'options' );
+		return self::all();
 	}
 
 	/** Entries still being enforced (expired temp blocks left out). */
@@ -138,26 +161,38 @@ class SecurityWP_IP_Block {
 		if ( $ip === self::current_ip() ) {
 			return new WP_Error( 'secwp_self_block', __( 'You can’t block your own current IP address.', 'ini-protector' ) );
 		}
-		// Expired temp blocks are otherwise only pruned when that IP comes back, so
-		// one-off scanners would fill the list and make every new block fail.
-		$list = self::without_expired( self::all() );
-		if ( ! isset( $list[ $ip ] ) && count( $list ) >= self::MAX ) {
-			return new WP_Error( 'secwp_block_full', __( 'The blocklist is full.', 'ini-protector' ) );
-		}
 		$valid_sources = array( self::SOURCE_MANUAL, self::SOURCE_SUGGESTION, self::SOURCE_AUTO );
-		$list[ $ip ]   = array(
+		$entry         = array(
 			'reason'  => sanitize_text_field( $reason ),
 			'time'    => time(),
 			'expires' => max( 0, $expires ),
 			'source'  => in_array( $source, $valid_sources, true ) ? $source : self::SOURCE_MANUAL,
 		);
-		update_option( self::OPTION, $list, false );
+		// Read-modify-write of one option: serialised, so a concurrent block, unblock or
+		// lazy prune can't overwrite this one with an older copy of the list.
+		$full = SecurityWP_Atomic::with_lock(
+			self::LOCK,
+			static function () use ( $ip, $entry ) {
+				// Expired temp blocks are otherwise only pruned when that IP comes back, so
+				// one-off scanners would fill the list and make every new block fail.
+				$list = self::without_expired( self::fresh_all() );
+				if ( ! isset( $list[ $ip ] ) && count( $list ) >= self::MAX ) {
+					return true;
+				}
+				$list[ $ip ] = $entry;
+				update_option( self::OPTION, $list, false );
+				return false;
+			}
+		);
+		if ( $full ) {
+			return new WP_Error( 'secwp_block_full', __( 'The blocklist is full.', 'ini-protector' ) );
+		}
 
 		do_action(
 			'secwp_platform_event',
 			'ip_blocked',
 			sprintf( 'Blocked %s', $ip ),
-			array( 'ip' => $ip, 'reason' => $reason, 'expires' => max( 0, $expires ), 'source' => $list[ $ip ]['source'] )
+			array( 'ip' => $ip, 'reason' => $reason, 'expires' => max( 0, $expires ), 'source' => $entry['source'] )
 		);
 		return true;
 	}
@@ -176,21 +211,26 @@ class SecurityWP_IP_Block {
 
 	/** Remove an IP from the blocklist. */
 	public static function unblock( string $ip ): bool {
-		$ip   = trim( $ip );
-		$list = self::all();
+		$ip = trim( $ip );
 		// The exact key too, so an entry saved in another spelling by an older version can go.
 		$keys = array_unique( array_filter( array( $ip, SecurityWP_Input::normalize_ip( $ip ) ) ) );
-		$hit  = false;
-		foreach ( $keys as $key ) {
-			if ( isset( $list[ $key ] ) ) {
-				unset( $list[ $key ] );
-				$hit = true;
+		return (bool) SecurityWP_Atomic::with_lock(
+			self::LOCK,
+			static function () use ( $keys ) {
+				$list = self::fresh_all();
+				$hit  = false;
+				foreach ( $keys as $key ) {
+					if ( isset( $list[ $key ] ) ) {
+						unset( $list[ $key ] );
+						$hit = true;
+					}
+				}
+				if ( $hit ) {
+					update_option( self::OPTION, $list, false );
+				}
+				return $hit;
 			}
-		}
-		if ( $hit ) {
-			update_option( self::OPTION, $list, false );
-		}
-		return $hit;
+		);
 	}
 
 	/**

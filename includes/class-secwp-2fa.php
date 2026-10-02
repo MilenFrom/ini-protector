@@ -248,7 +248,7 @@ class SecurityWP_2FA {
 		$expires     = $parsed['expires']; // Reused on retry so the window never grows.
 		$redirect_to = isset( $_POST['redirect_to'] ) && is_string( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : '';
 
-		if ( self::attempts( $user->ID ) >= self::MAX_ATTEMPTS ) {
+		if ( self::bump_attempts( $user->ID ) > self::MAX_ATTEMPTS ) {
 			self::show_challenge(
 				$user,
 				(string) $redirect_to,
@@ -273,7 +273,7 @@ class SecurityWP_2FA {
 		}
 
 		if ( ! $ok ) {
-			self::bump_attempts( $user->ID );
+			// Already counted by bump_attempts() above.
 			self::show_challenge( $user, (string) $redirect_to, $remember, __( 'That code was not correct. Codes change every 30 seconds — check your device clock if this keeps happening.', 'ini-protector' ), false, $expires );
 		}
 
@@ -498,14 +498,14 @@ class SecurityWP_2FA {
 		return 'secwp_2fa_fail_' . $user_id;
 	}
 
-	private static function attempts( int $user_id ): int {
-		return (int) get_transient( self::attempt_key( $user_id ) );
-	}
-
-	private static function bump_attempts( int $user_id ): void {
-		$n = self::attempts( $user_id ) + 1;
-		set_transient( self::attempt_key( $user_id ), $n, self::ATTEMPT_WINDOW );
-		if ( $n >= self::MAX_ATTEMPTS ) {
+	/**
+	 * Count an attempt before it is checked and return the new total. Reserving first is
+	 * what makes the limit hold under concurrency: checking, then bumping only on a wrong
+	 * code, let every parallel request pass the check before any of them was counted.
+	 */
+	private static function bump_attempts( int $user_id ): int {
+		$n = SecurityWP_Atomic::incr( self::attempt_key( $user_id ), self::ATTEMPT_WINDOW );
+		if ( self::MAX_ATTEMPTS === $n ) {
 			do_action(
 				'secwp_platform_event',
 				'2fa_attempts_exceeded',
@@ -513,10 +513,11 @@ class SecurityWP_2FA {
 				array( 'user_id' => $user_id )
 			);
 		}
+		return $n;
 	}
 
 	private static function clear_attempts( int $user_id ): void {
-		delete_transient( self::attempt_key( $user_id ) );
+		SecurityWP_Atomic::delete( self::attempt_key( $user_id ) );
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -617,6 +618,13 @@ class SecurityWP_2FA {
 				. '</p></div></td></tr>';
 		}
 
+		if ( get_transient( 'secwp_2fa_confirm_error_' . $user->ID ) ) {
+			delete_transient( 'secwp_2fa_confirm_error_' . $user->ID );
+			echo '<tr><th></th><td><div class="notice notice-error inline"><p>'
+				. esc_html__( 'Nothing was changed: turning two-factor authentication off or replacing recovery codes needs your current authenticator code (or a recovery code) in the confirmation box.', 'ini-protector' )
+				. '</p></div></td></tr>';
+		}
+
 		// Freshly issued recovery codes are shown exactly once, right after enrolment.
 		$fresh = get_transient( 'secwp_2fa_codes_' . $user->ID );
 		if ( is_array( $fresh ) && $fresh ) {
@@ -688,6 +696,14 @@ class SecurityWP_2FA {
 				. '</p>';
 		}
 		echo '</td></tr>';
+
+		// Turning it off or replacing the recovery codes needs the acting user's own code.
+		if ( SecurityWP_TOTP::is_enabled( get_current_user_id() ) ) {
+			echo '<tr><th><label for="secwp_2fa_confirm">' . esc_html__( 'Confirm with your code', 'ini-protector' ) . '</label></th><td>';
+			echo '<input type="text" name="secwp_2fa_confirm" id="secwp_2fa_confirm" value="" class="regular-text" size="10" inputmode="numeric" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" />';
+			echo '<p class="description">' . esc_html__( 'Required for either change above: the current code from your authenticator app, or one of your recovery codes.', 'ini-protector' ) . '</p>';
+			echo '</td></tr>';
+		}
 	}
 
 	private static function render_enrolment( WP_User $user, bool $required ): void {
@@ -766,6 +782,30 @@ class SecurityWP_2FA {
 	 * Handle the profile form. Core has already verified the update-user nonce and
 	 * the capability before these hooks fire; we re-check the capability anyway.
 	 */
+	/**
+	 * Has the logged-in user just proved their own second factor (current code or an unused
+	 * recovery code in secwp_2fa_confirm)? True when they have no 2FA to prove. Guesses
+	 * count against the same attempt limit as the login step.
+	 */
+	private static function actor_confirmed(): bool {
+		$actor = get_current_user_id();
+		if ( $actor <= 0 ) {
+			return false;
+		}
+		if ( ! SecurityWP_TOTP::is_enabled( $actor ) ) {
+			return true;
+		}
+		$code = isset( $_POST['secwp_2fa_confirm'] ) && is_string( $_POST['secwp_2fa_confirm'] ) ? sanitize_text_field( wp_unslash( $_POST['secwp_2fa_confirm'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- caller verified the profile nonce.
+		if ( '' === $code || self::bump_attempts( $actor ) > self::MAX_ATTEMPTS ) {
+			return false;
+		}
+		if ( SecurityWP_TOTP::verify_for_user( $actor, $code ) || SecurityWP_TOTP::verify_recovery( $actor, $code ) ) {
+			self::clear_attempts( $actor );
+			return true;
+		}
+		return false;
+	}
+
 	public static function save_profile( int $user_id ): void {
 		if ( ! current_user_can( 'edit_user', $user_id ) ) {
 			return;
@@ -773,9 +813,19 @@ class SecurityWP_2FA {
 		check_admin_referer( 'update-user_' . $user_id );
 		$is_self = ( get_current_user_id() === $user_id );
 
+		$wants_off   = ! empty( $_POST['secwp_2fa_disable'] );
+		$wants_regen = $is_self && ! empty( $_POST['secwp_2fa_regenerate'] ) && SecurityWP_TOTP::is_enabled( $user_id );
+		// Both weaken the account, so a logged-in session alone is not enough: a stolen
+		// cookie or an XSS could otherwise switch the second factor off. The person acting
+		// proves their own second factor, if they have one.
+		if ( ( $wants_off || $wants_regen ) && ! self::actor_confirmed() ) {
+			set_transient( 'secwp_2fa_confirm_error_' . $user_id, 1, MINUTE_IN_SECONDS );
+			return;
+		}
+
 		// Turning it off: allowed for the account holder and for an administrator
 		// who can already edit this user (the in-admin counterpart of the CLI reset).
-		if ( ! empty( $_POST['secwp_2fa_disable'] ) ) {
+		if ( $wants_off ) {
 			SecurityWP_TOTP::disable( $user_id );
 			do_action(
 				'secwp_platform_event',
@@ -791,7 +841,7 @@ class SecurityWP_2FA {
 			return;
 		}
 
-		if ( ! empty( $_POST['secwp_2fa_regenerate'] ) && SecurityWP_TOTP::is_enabled( $user_id ) ) {
+		if ( $wants_regen ) {
 			$codes = SecurityWP_TOTP::generate_recovery_codes( $user_id );
 			set_transient( 'secwp_2fa_codes_' . $user_id, $codes, 5 * MINUTE_IN_SECONDS );
 			return;

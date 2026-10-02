@@ -42,6 +42,7 @@ if ( ! defined( 'SECWP_VULN_API_BASE' ) ) {
 
 /* --- Includes ------------------------------------------------------------- */
 require_once SECWP_DIR . 'includes/class-secwp-input.php';
+require_once SECWP_DIR . 'includes/class-secwp-atomic.php';
 require_once SECWP_DIR . 'includes/class-secwp-features.php';
 require_once SECWP_DIR . 'includes/class-secwp-tweaks.php';
 require_once SECWP_DIR . 'includes/class-secwp-security-headers.php';
@@ -154,25 +155,46 @@ register_activation_hook(
 	}
 );
 
+/** Clear this site's scheduled events and flush its rewrites (one site of a network, or the only one). */
+function secwp_deactivate_site( bool $switched = false ): void {
+	// Leave no orphaned cron behind.
+	wp_clear_scheduled_hook( 'secwp_vuln_scan' );
+	if ( class_exists( 'SecurityWP_Autoblock' ) ) {
+		SecurityWP_Autoblock::unschedule();
+	} else {
+		wp_clear_scheduled_hook( 'secwp_autoblock_eval' );
+	}
+	if ( class_exists( 'SecurityWP_Integrity' ) ) {
+		SecurityWP_Integrity::unschedule();
+	} else {
+		wp_clear_scheduled_hook( 'secwp_integrity_scan' );
+	}
+	if ( $switched ) {
+		// flush_rewrite_rules() after switch_to_blog() would rebuild this site's rules from
+		// the main site's loaded plugins; dropping them lets the site regenerate its own.
+		delete_option( 'rewrite_rules' );
+	} else {
+		flush_rewrite_rules();
+	}
+}
+
 register_deactivation_hook(
 	__FILE__,
-	static function () {
-		// Remove any .htaccess rules we wrote, and flush rewrites.
+	static function ( $network_wide = false ) {
+		// Remove any .htaccess rules we wrote (one file for the whole install).
 		if ( class_exists( 'SecurityWP_Info_Disclosure' ) && method_exists( 'SecurityWP_Info_Disclosure', 'remove_htaccess' ) ) {
 			SecurityWP_Info_Disclosure::remove_htaccess();
 		}
-		// Leave no orphaned cron behind.
-		wp_clear_scheduled_hook( 'secwp_vuln_scan' );
-		if ( class_exists( 'SecurityWP_Autoblock' ) ) {
-			SecurityWP_Autoblock::unschedule();
-		} else {
-			wp_clear_scheduled_hook( 'secwp_autoblock_eval' );
+		// Network deactivation runs this once, on the main site; every site's cron would
+		// otherwise keep firing hooks that no longer have a callback.
+		if ( $network_wide && is_multisite() ) {
+			foreach ( get_sites( array( 'fields' => 'ids', 'number' => 0 ) ) as $site_id ) {
+				switch_to_blog( (int) $site_id );
+				secwp_deactivate_site( true );
+				restore_current_blog();
+			}
+			return;
 		}
-		if ( class_exists( 'SecurityWP_Integrity' ) ) {
-			SecurityWP_Integrity::unschedule();
-		} else {
-			wp_clear_scheduled_hook( 'secwp_integrity_scan' );
-		}
-		flush_rewrite_rules();
+		secwp_deactivate_site();
 	}
 );

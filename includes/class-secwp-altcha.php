@@ -118,12 +118,8 @@ class SecurityWP_Altcha {
 			return false;
 		}
 		// 4) Single-use: a given solution (challenge hash) can be accepted once, within MAX_AGE.
-		$used_key = 'secwp_altcha_' . md5( (string) $data['challenge'] );
-		if ( get_transient( $used_key ) ) {
-			return false;
-		}
-		set_transient( $used_key, 1, self::MAX_AGE );
-		return true;
+		// Atomic claim: a get-then-set let parallel requests replay one solution.
+		return SecurityWP_Atomic::claim( 'altcha|' . md5( (string) $data['challenge'] ), self::MAX_AGE );
 	}
 
 	private function solution_from_post(): string {

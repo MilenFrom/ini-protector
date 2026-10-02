@@ -185,6 +185,32 @@ inipr_assert( is_wp_error( $resp ) && 'api_error' === $resp->get_error_code(), '
 remove_filter( 'pre_http_request', $in_band );
 delete_transient( 'secwp_vuln_' . md5( 'plugin|inipr-in-band|1.0' ) );
 
+// Turning 2FA off needs the acting user's own code, not just a logged-in session.
+wp_set_current_user( 1 );
+$tf_secret = SecurityWP_TOTP::generate_secret();
+SecurityWP_TOTP::set_secret( 1, $tf_secret );
+SecurityWP_TOTP::confirm( 1, SecurityWP_TOTP::code_at( $tf_secret, SecurityWP_TOTP::slot() ) );
+inipr_assert( SecurityWP_TOTP::is_enabled( 1 ), '2FA enrolled for the off-switch test' );
+$_POST = $_REQUEST = array( '_wpnonce' => wp_create_nonce( 'update-user_1' ), 'secwp_2fa_disable' => '1' );
+SecurityWP_2FA::save_profile( 1 );
+inipr_assert( SecurityWP_TOTP::is_enabled( 1 ), '2FA not turned off without a confirmation code' );
+$_POST['secwp_2fa_confirm'] = $_REQUEST['secwp_2fa_confirm'] = '000000' === SecurityWP_TOTP::code_at( $tf_secret, SecurityWP_TOTP::slot() + 1 ) ? '111111' : '000000';
+SecurityWP_2FA::save_profile( 1 );
+inipr_assert( SecurityWP_TOTP::is_enabled( 1 ), '2FA not turned off with a wrong code' );
+$_POST['secwp_2fa_confirm'] = $_REQUEST['secwp_2fa_confirm'] = SecurityWP_TOTP::code_at( $tf_secret, SecurityWP_TOTP::slot() + 1 );
+SecurityWP_2FA::save_profile( 1 );
+inipr_assert( ! SecurityWP_TOTP::is_enabled( 1 ), '2FA turned off with the current code' );
+$_POST = $_REQUEST = array();
+
+// Single-use claims and counters are atomic and behave as documented.
+inipr_assert( SecurityWP_Atomic::claim( 'inipr-test', 60 ) && ! SecurityWP_Atomic::claim( 'inipr-test', 60 ), 'claim succeeds once' );
+SecurityWP_Atomic::release( 'inipr-test' );
+inipr_assert( SecurityWP_Atomic::claim( 'inipr-test', 60 ), 'released claim can be taken again' );
+SecurityWP_Atomic::release( 'inipr-test' );
+inipr_assert( 1 === SecurityWP_Atomic::incr( 'inipr-ctr', 60 ) && 2 === SecurityWP_Atomic::incr( 'inipr-ctr', 60 ) && 2 === SecurityWP_Atomic::get( 'inipr-ctr' ), 'atomic counter increments' );
+SecurityWP_Atomic::delete( 'inipr-ctr' );
+inipr_assert( 0 === SecurityWP_Atomic::get( 'inipr-ctr' ), 'atomic counter deleted' );
+
 // The app-password 2FA skip belongs to the user who presented it, not the whole request
 // (one XML-RPC system.multicall can authenticate several accounts).
 SecurityWP_2FA::flag_app_password( get_userdata( 1 ) );

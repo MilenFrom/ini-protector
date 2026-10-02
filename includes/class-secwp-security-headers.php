@@ -8,8 +8,10 @@
  *  - FRONT-END ONLY: we don't touch wp-admin, the REST API (incl. the INI WP channel), AJAX,
  *    cron, CLI, or feeds — only normal visitor page responses. Hardening headers on the admin
  *    can break embeds/previews and aren't where the risk is.
- *  - NEVER DUPLICATE: if a header is already present (set by Caddy/Nginx/Cloudflare or another
- *    plugin) we leave it alone, so you don't get two conflicting values on the wire.
+ *  - NO DUPLICATES FROM PHP: if another plugin or theme already set a header in PHP we leave it
+ *    alone. Headers added later by the web server or a CDN (Caddy, Nginx, Cloudflare) are not
+ *    visible from PHP, so those can't be detected; return '' from the secwp_security_header
+ *    filter to stop sending a header your server already adds.
  *  - PER-HEADER: each header is an independent checkbox; X-Frame-Options and Referrer-Policy /
  *    Permissions-Policy carry a value chosen in the config.
  *  - X-XSS-Protection is DEPRECATED. The only correct modern value is "0" (disable the legacy
@@ -60,7 +62,15 @@ class SecurityWP_Security_Headers {
 
 	/** Send a header only if it isn't already present (replace=false to be extra safe). */
 	private function maybe_header( string $name, string $value ): void {
-		if ( headers_sent() || $this->already_set( $name ) ) {
+		/**
+		 * Filter one security header's value before it is sent. Return '' to skip it, for
+		 * example when the web server or CDN already adds it (PHP cannot see those).
+		 *
+		 * @param string $value Header value.
+		 * @param string $name  Header name, e.g. 'X-Frame-Options'.
+		 */
+		$value = (string) apply_filters( 'secwp_security_header', $value, $name );
+		if ( '' === $value || headers_sent() || $this->already_set( $name ) ) {
 			return;
 		}
 		header( $name . ': ' . $value, false );

@@ -102,8 +102,8 @@ class SecurityWP_Limit_Login {
 	}
 
 	public function on_failed(): void {
-		$attempts = (int) get_transient( $this->key( 'count' ) ) + 1;
-		set_transient( $this->key( 'count' ), $attempts, $this->lockout_seconds() );
+		// Atomic: parallel failed logins each count, so a burst can't slip past the limit.
+		$attempts = SecurityWP_Atomic::incr( $this->key( 'count' ), $this->lockout_seconds() );
 		if ( $attempts >= $this->max() ) {
 			set_transient( $this->key( 'lock' ), 1, $this->lockout_seconds() );
 		}

@@ -46,6 +46,12 @@ class SecurityWP_Integrity {
 	const OPT_RESULTS = 'secwp_integrity_results';
 	/** Rolling recent-change log (bounded), so the admin page shows history, not just the last run. */
 	const OPT_HISTORY = 'secwp_integrity_history';
+
+	/** Baseline rows read per query. */
+	const READ_PAGE = 5000;
+
+	/** Seconds a scan holds its lock (released on completion; this only bounds a crashed run). */
+	const SCAN_LOCK_TTL = 3600;
 	/** Monotonic report sequence — a gap in the mailbox means a report was suppressed. */
 	const OPT_SEQ = 'secwp_integrity_seq';
 	/** Digest of the state the stored baseline represents (chain anchor). */
@@ -625,11 +631,21 @@ class SecurityWP_Integrity {
 		$table = self::table_name();
 		$out   = array();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
-		$rows = $wpdb->get_results( "SELECT path_hash, hash, size, mtime, path FROM {$table}", ARRAY_N );
-		foreach ( (array) $rows as $r ) {
-			$out[ $r[0] ] = $r[1] . self::SEP . $r[2] . self::SEP . $r[3] . self::SEP . $r[4];
-		}
+		// In pages, walking the primary key. One get_results() over the whole table held
+		// every row twice (wpdb's own last_result objects plus our array) on top of the
+		// current scan: at the 200k-file cap that alone could pass a cron memory limit.
+		$after = '';
+		do {
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT path_hash, hash, size, mtime, path FROM {$table} WHERE path_hash > %s ORDER BY path_hash LIMIT %d", $after, self::READ_PAGE ), ARRAY_N );
+			$wpdb->flush(); // Drop wpdb's copy of the page.
+			$count = is_array( $rows ) ? count( $rows ) : 0;
+			foreach ( (array) $rows as $r ) {
+				$out[ $r[0] ] = $r[1] . self::SEP . $r[2] . self::SEP . $r[3] . self::SEP . $r[4];
+				$after        = $r[0];
+			}
+			unset( $rows );
+		} while ( self::READ_PAGE === $count );
 		return $out;
 	}
 
@@ -661,6 +677,22 @@ class SecurityWP_Integrity {
 	 * @return array The report.
 	 */
 	public function run_scan( array $args = array() ): array {
+		// One scan at a time. "Scan now", cron and WP-CLI can otherwise overlap: both read
+		// the same baseline, both alert on the same changes under the same sequence number,
+		// and both write. The lock outlives any sane scan; if a run dies it frees itself.
+		if ( ! SecurityWP_Atomic::claim( 'integrity_scan', self::SCAN_LOCK_TTL ) ) {
+			$busy           = self::get_results();
+			$busy['status'] = 'busy';
+			return $busy;
+		}
+		try {
+			return $this->run_scan_locked( $args );
+		} finally {
+			SecurityWP_Atomic::release( 'integrity_scan' );
+		}
+	}
+
+	private function run_scan_locked( array $args ): array {
 		$started       = microtime( true );
 		$force_baseline = ! empty( $args['baseline'] );
 		$notify         = ! isset( $args['notify'] ) || (bool) $args['notify'];

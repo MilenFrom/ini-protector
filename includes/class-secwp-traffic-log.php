@@ -40,8 +40,10 @@ class SecurityWP_Traffic_Log {
 	// rather than something they inherit by not looking.
 	const MAX_ROWS       = 250000; // DEFAULT row cap    (config 'max_rows',       0 = no cap)
 	const RETENTION_DAYS = 90;     // DEFAULT age limit  (config 'retention_days', 0 = keep forever)
-	const SCHEMA_VERSION = 1;
+	const SCHEMA_VERSION = 2;      // 2: created_at is UTC (it was the site's local wall clock)
 	const OPT_SCHEMA     = 'secwp_traffic_schema';
+	const OPT_UTC_TODO   = 'secwp_traffic_utc_todo'; // id range of rows still in local time
+	const UTC_BATCH      = 5000;
 
 	/**
 	 * Ceiling on how far back a READER may look, in days. Nothing is pruned at this age — it only
@@ -53,19 +55,93 @@ class SecurityWP_Traffic_Log {
 	/**
 	 * A `created_at` cutoff for a window ending now and starting $seconds ago.
 	 *
-	 * Rows are written with `current_time( 'mysql' )` — the site's LOCAL wall clock — so every
-	 * comparison against that column has to be a local wall-clock string too. This class used
-	 * `gmdate()` until 1.8.1, which compared local timestamps against a UTC cutoff and shifted
-	 * pruning and every read window by the site's UTC offset (3 hours on Europe/Sofia).
-	 *
-	 * `wp_date()` renders the moment in the site's timezone and is DST-aware **for that moment**,
-	 * so a window is correct on both sides of a clock change rather than off by an hour.
+	 * Since schema 2, rows are written in UTC and compared in UTC. The site's local wall clock
+	 * (used before) repeats an hour every autumn, so rows from the two passes through that hour
+	 * were indistinguishable and window edges were off by up to an hour around it. Times are
+	 * converted to the site's timezone only for display, at the read API (local_time()).
 	 */
 	private static function cutoff( int $seconds ): string {
-		$stamp = wp_date( 'Y-m-d H:i:s', time() - $seconds );
-		// wp_date() returns false if the timezone is unusable. Falling back to UTC reproduces the
-		// old skew, which is wrong but harmless — better than a cutoff of '' matching every row.
-		return false !== $stamp ? $stamp : gmdate( 'Y-m-d H:i:s', time() - $seconds );
+		return gmdate( 'Y-m-d H:i:s', time() - $seconds );
+	}
+
+	/** A stored UTC `created_at` value as the site's local time, for display and the API. */
+	private static function local_time( $utc ): string {
+		$utc = (string) $utc;
+		return '' === $utc ? '' : (string) get_date_from_gmt( $utc, 'Y-m-d H:i:s' );
+	}
+
+	/**
+	 * Schema 1 → 2: rows already in the table are in local time. Record their id range; they
+	 * are converted in batches by convert_batch(), never in one long UPDATE inside a request.
+	 * Until then those rows read up to the UTC offset late, which is no worse than before.
+	 */
+	private static function maybe_upgrade(): void {
+		if ( (int) get_option( self::OPT_SCHEMA ) >= self::SCHEMA_VERSION || ! self::table_exists() ) {
+			return;
+		}
+		global $wpdb;
+		$table = self::table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
+		$range = $wpdb->get_row( "SELECT MIN(id) AS first_id, MAX(id) AS last_id FROM {$table}", ARRAY_A );
+		if ( ! empty( $range['last_id'] ) ) {
+			update_option( self::OPT_UTC_TODO, array( 'next' => (int) $range['first_id'], 'end' => (int) $range['last_id'] + 1 ), false );
+		}
+		update_option( self::OPT_SCHEMA, self::SCHEMA_VERSION, false );
+	}
+
+	/** Convert one batch of pre-schema-2 rows from local time to UTC. */
+	private static function convert_batch(): void {
+		$todo = get_option( self::OPT_UTC_TODO );
+		if ( ! is_array( $todo ) || ! isset( $todo['next'], $todo['end'] ) ) {
+			return;
+		}
+		$next = (int) $todo['next'];
+		$end  = (int) $todo['end'];
+		$stop = min( $next + self::UTC_BATCH, $end );
+		if ( $next < $end ) {
+			global $wpdb;
+			$table = self::table_name();
+			$tz    = wp_timezone();
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
+			// Each row needs the offset that applied on its own date, DST included. MySQL can do
+			// that per row when it has timezone tables; without them CONVERT_TZ() returns NULL
+			// and the offset is worked out here instead, once per calendar day in the batch.
+			$native = null !== $wpdb->get_var( $wpdb->prepare( "SELECT CONVERT_TZ( '2000-01-01 00:00:00', %s, '+00:00' )", wp_timezone_string() ) );
+			if ( $native ) {
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$table} SET created_at = CONVERT_TZ( created_at, %s, '+00:00' ) WHERE id >= %d AND id < %d",
+					wp_timezone_string(), $next, $stop
+				) );
+			} else {
+				$days = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT DATE( created_at ) FROM {$table} WHERE id >= %d AND id < %d", $next, $stop ) );
+				if ( $days ) {
+					// One UPDATE with a per-day CASE, so every row is shifted exactly once from its
+					// original value (per-day UPDATEs would move rows into a day not yet processed).
+					// Offset at local noon: on a clock-change day only the hours around the change
+					// can be off, and those are the hours that were ambiguous to begin with.
+					$case = 'CASE DATE( created_at )';
+					$args = array();
+					foreach ( $days as $day ) {
+						$case  .= ' WHEN %s THEN %d';
+						$args[] = $day;
+						$args[] = $tz->getOffset( new DateTime( $day . ' 12:00:00', $tz ) );
+					}
+					$case .= ' ELSE 0 END';
+					$args[] = $next;
+					$args[] = $stop;
+					$wpdb->query( $wpdb->prepare(
+						"UPDATE {$table} SET created_at = DATE_SUB( created_at, INTERVAL ({$case}) SECOND ) WHERE id >= %d AND id < %d",
+						$args
+					) );
+				}
+			}
+			// phpcs:enable
+		}
+		if ( $stop >= $end ) {
+			delete_option( self::OPT_UTC_TODO );
+		} else {
+			update_option( self::OPT_UTC_TODO, array( 'next' => $stop, 'end' => $end ), false );
+		}
 	}
 
 	/** Effective age limit in days. 0 = keep forever. */
@@ -155,8 +231,10 @@ class SecurityWP_Traffic_Log {
 	}
 
 	public function register(): void {
-		if ( ! self::table_exists() || (int) get_option( self::OPT_SCHEMA ) < self::SCHEMA_VERSION ) {
+		if ( ! self::table_exists() ) {
 			self::install_table();
+		} else {
+			self::maybe_upgrade();
 		}
 		// Capture after the response is generated so we have the final status code and add no
 		// latency to the user's request. Late priority so other shutdown work runs first.
@@ -216,7 +294,7 @@ class SecurityWP_Traffic_Log {
 		$wpdb->insert(
 			self::table_name(),
 			array(
-				'created_at' => current_time( 'mysql' ),
+				'created_at' => current_time( 'mysql', true ), // UTC, see cutoff().
 				'ip'         => $ip,
 				'method'     => $method,
 				'path'       => $path,
@@ -350,12 +428,27 @@ class SecurityWP_Traffic_Log {
 		$raw = wp_unslash( $_SERVER[ $key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each candidate is validated as an IP below before use.
 		$out = array();
 		foreach ( explode( ',', $raw ) as $part ) {
-			$part = trim( $part );
+			$part = self::strip_port( trim( $part ) );
 			if ( '' !== $part ) {
 				$out[] = $part;
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * Some proxies (Azure Application Gateway, some IIS setups) forward the client with its
+	 * port: '203.0.113.7:51234' or '[2001:db8::1]:443'. Unstripped, that fails validation and
+	 * the walk gives up, which falls back to the proxy's own address for every visitor.
+	 */
+	private static function strip_port( string $candidate ): string {
+		if ( preg_match( '/^\[([0-9a-fA-F:.]+)\](?::\d{1,5})?$/', $candidate, $m ) ) {
+			return $m[1];
+		}
+		if ( preg_match( '/^(\d{1,3}(?:\.\d{1,3}){3}):\d{1,5}$/', $candidate, $m ) ) {
+			return $m[1];
+		}
+		return $candidate; // Bare IPv4/IPv6, or garbage the caller rejects.
 	}
 
 	/**
@@ -427,6 +520,7 @@ class SecurityWP_Traffic_Log {
 		if ( wp_rand( 1, 50 ) !== 1 ) {
 			return;
 		}
+		self::convert_batch();
 		$retention = self::retention_days();
 		$max_rows  = self::max_rows();
 		if ( $retention < 1 && $max_rows < 1 ) {
@@ -482,21 +576,35 @@ class SecurityWP_Traffic_Log {
 	 * "unknown", not "empty".
 	 */
 	public static function stats(): array {
+		static $memo = null; // The Traffic page asks twice per load; the answer won't change.
+		if ( null !== $memo ) {
+			return $memo;
+		}
 		if ( ! self::table_exists() ) {
 			return array( 'enabled' => false );
 		}
+		self::maybe_upgrade();
+		self::convert_batch();
 		global $wpdb;
 		$table = self::table_name();
 
+		// Counted from the id range, not COUNT(*): on InnoDB that scans the whole table, and
+		// with retention off it can hold millions of rows. Rows are only ever deleted from the
+		// oldest end (both prune limits) or all at once (clear), so the range is the count.
 		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 		$row = $wpdb->get_row(
-			"SELECT COUNT(*) AS rows_total, MIN(created_at) AS oldest, MAX(created_at) AS newest FROM {$table}",
+			"SELECT MIN(id) AS first_id, MAX(id) AS last_id, MIN(created_at) AS oldest, MAX(created_at) AS newest FROM {$table}",
 			ARRAY_A
 		);
-		$since  = self::cutoff( 7 * DAY_IN_SECONDS );
-		$recent = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE created_at >= %s", $since )
+		$first_id   = (int) ( $row['first_id'] ?? 0 );
+		$last_id    = (int) ( $row['last_id'] ?? 0 );
+		$rows_total = $last_id > 0 ? $last_id - $first_id + 1 : 0;
+
+		$since    = self::cutoff( 7 * DAY_IN_SECONDS );
+		$since_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT MIN(id) FROM {$table} WHERE created_at >= %s", $since )
 		);
+		$recent = $since_id > 0 ? $last_id - $since_id + 1 : 0;
 		$bytes = (int) $wpdb->get_var( $wpdb->prepare(
 			"SELECT data_length + index_length FROM information_schema.tables
 			 WHERE table_schema = DATABASE() AND table_name = %s",
@@ -504,16 +612,14 @@ class SecurityWP_Traffic_Log {
 		) );
 		// phpcs:enable
 
-		$rows_total = (int) ( $row['rows_total'] ?? 0 );
-
-		return array(
+		return $memo = array(
 			'enabled'        => true,
 			'rows'           => $rows_total,
 			'bytes'          => $bytes,
 			'bytes_per_row'  => $rows_total > 0 && $bytes > 0 ? (int) round( $bytes / $rows_total ) : 0,
 			'rows_per_day'   => (int) round( $recent / 7 ),
-			'oldest'         => (string) ( $row['oldest'] ?? '' ),
-			'newest'         => (string) ( $row['newest'] ?? '' ),
+			'oldest'         => self::local_time( $row['oldest'] ?? '' ),
+			'newest'         => self::local_time( $row['newest'] ?? '' ),
 			'retention_days' => self::retention_days(),
 			'max_rows'       => self::max_rows(),
 		);
@@ -530,6 +636,8 @@ class SecurityWP_Traffic_Log {
 		if ( ! self::table_exists() ) {
 			return array( 'enabled' => false );
 		}
+		self::maybe_upgrade();
+		self::convert_batch(); // Runs from the 5-minute auto-block pass, so old rows convert steadily.
 		global $wpdb;
 		$table  = self::table_name();
 		$hours  = max( 1, min( self::max_window_hours(), $hours ) );
@@ -601,7 +709,7 @@ class SecurityWP_Traffic_Log {
 			),
 			'top_ips'      => array_map( array( __CLASS__, 'with_verdict' ), (array) $top_ips ),
 			'top_paths'    => array_map( array( __CLASS__, 'int_counts' ), (array) $top_paths ),
-			'recent'       => (array) $recent,
+			'recent'       => self::rows_local( (array) $recent, 'created_at' ),
 			'suggested'    => self::suggest_rules( $candidates ),
 		);
 	}
@@ -619,6 +727,7 @@ class SecurityWP_Traffic_Log {
 		if ( ! self::table_exists() || '' === $ip ) {
 			return null;
 		}
+		self::maybe_upgrade();
 		global $wpdb;
 		$table = self::table_name();
 		$since = self::cutoff( max( 0, time() - $since_ts ) );
@@ -650,6 +759,7 @@ class SecurityWP_Traffic_Log {
 		if ( ! self::table_exists() || '' === $ip || ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
 			return array( 'enabled' => false );
 		}
+		self::maybe_upgrade();
 		global $wpdb;
 		$table    = self::table_name();
 		$hours    = max( 1, min( self::max_window_hours(), $hours ) );
@@ -719,15 +829,15 @@ class SecurityWP_Traffic_Log {
 				'login_attempts' => (int) ( $totals['login_attempts'] ?? 0 ),
 				'distinct_paths' => (int) ( $totals['distinct_paths'] ?? 0 ),
 				'distinct_uas'   => (int) ( $totals['distinct_uas'] ?? 0 ),
-				'first_seen'     => (string) ( $totals['first_seen'] ?? '' ),
-				'last_seen'      => (string) ( $totals['last_seen'] ?? '' ),
+				'first_seen'     => self::local_time( $totals['first_seen'] ?? '' ),
+				'last_seen'      => self::local_time( $totals['last_seen'] ?? '' ),
 			),
 			'verdict'      => self::ip_verdict( $totals, $hours ),
 			'statuses'     => array_map( array( __CLASS__, 'int_counts' ), (array) $statuses ),
 			'reasons'      => array_map( array( __CLASS__, 'int_counts' ), (array) $reasons ),
 			'paths'        => array_map( array( __CLASS__, 'int_counts' ), (array) $paths ),
 			'user_agents'  => array_map( array( __CLASS__, 'int_counts' ), (array) $user_agents ),
-			'timeline'     => (array) $recent,
+			'timeline'     => self::rows_local( (array) $recent, 'created_at' ),
 		);
 	}
 
@@ -808,7 +918,20 @@ class SecurityWP_Traffic_Log {
 		$row              = self::int_counts( $row );
 		$verdict          = self::ip_verdict( $row, 0 );
 		$row['verdict']   = $verdict['level'];
+		if ( isset( $row['last_seen'] ) ) {
+			$row['last_seen'] = self::local_time( $row['last_seen'] );
+		}
 		return $row;
+	}
+
+	/** Convert one UTC time column of each row to local time (read API output). */
+	private static function rows_local( array $rows, string $col ): array {
+		foreach ( $rows as $i => $row ) {
+			if ( is_array( $row ) && isset( $row[ $col ] ) ) {
+				$rows[ $i ][ $col ] = self::local_time( $row[ $col ] );
+			}
+		}
+		return $rows;
 	}
 
 	/**
@@ -854,6 +977,7 @@ class SecurityWP_Traffic_Log {
 		}
 		global $wpdb;
 		$table = self::table_name();
+		delete_option( self::OPT_UTC_TODO ); // Nothing left to convert.
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
 		return false !== $wpdb->query( "TRUNCATE TABLE {$table}" );
 	}
