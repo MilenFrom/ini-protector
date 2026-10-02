@@ -52,24 +52,77 @@ class SecurityWP_Manual_Update {
 		if ( ! self::compatible( $info ) ) {
 			return 'incompatible';
 		}
-		set_site_transient( self::offer_key(), $info, 15 * MINUTE_IN_SECONDS );
+		// Kept until it is installed or WordPress's own update list catches up (pending_offer()).
+		// Installing re-fetches and re-validates the release, so a stored offer grants nothing.
+		set_site_transient( self::offer_key(), $info, WEEK_IN_SECONDS );
 		return 'available';
 	}
 
-	public static function offer_notice(): void {
+	/** The offer from the last explicit check, while it is newer and core does not list it yet. */
+	public static function pending_offer() {
 		$info = get_site_transient( self::offer_key() );
-		if ( ! is_object( $info ) || empty( $info->version ) || ! version_compare( $info->version, SECWP_VERSION, '>' ) ) {
-			echo '<div class="notice notice-info"><p>' . esc_html__( 'Please check for INI Protector updates again to refresh the available release.', 'ini-protector' ) . '</p></div>';
+		if ( ! is_object( $info ) || empty( $info->version ) ) {
+			return null;
+		}
+		if ( ! version_compare( $info->version, SECWP_VERSION, '>' ) ) {
+			delete_site_transient( self::offer_key() ); // Installed; nothing left to offer.
+			return null;
+		}
+		$core   = get_site_transient( 'update_plugins' );
+		$listed = is_object( $core ) && isset( $core->response[ SECWP_BASENAME ]->new_version ) ? (string) $core->response[ SECWP_BASENAME ]->new_version : '';
+		if ( '' !== $listed && version_compare( $listed, $info->version, '>=' ) ) {
+			return null; // WordPress shows its own update row; never show two.
+		}
+		return $info;
+	}
+
+	private static function install_url( string $version ): string {
+		return wp_nonce_url( add_query_arg( array( 'action' => 'secwp_install_update', 'version' => $version ), network_admin_url( 'admin.php' ) ), 'secwp_install_update_' . $version );
+	}
+
+	/** Show a pending offer as WordPress's own update row under the plugin (after_plugin_row_*). */
+	public static function update_row( string $file ): void {
+		$info = current_user_can( 'update_plugins' ) ? self::pending_offer() : null;
+		if ( ! $info ) {
 			return;
 		}
-		$url = wp_nonce_url( add_query_arg( array( 'action' => 'secwp_install_update', 'version' => $info->version ), network_admin_url( 'admin.php' ) ), 'secwp_install_update_' . $info->version );
+		$name    = 'INI Protector';
+		$details = self_admin_url( 'plugin-install.php?tab=plugin-information&plugin=ini-protector&section=changelog&TB_iframe=true&width=600&height=800' );
+		$active  = is_network_admin() ? is_plugin_active_for_network( $file ) : is_plugin_active( $file );
+		$table   = $GLOBALS['wp_list_table'] ?? null;
+		$columns = is_object( $table ) && method_exists( $table, 'get_column_count' ) ? (int) $table->get_column_count() : 4;
+		// Same markup and classes as core's wp_plugin_update_row(), minus `update-link`: that class
+		// hands the click to core's AJAX updater, which only knows releases in its own update list.
 		printf(
-			'<div class="notice notice-success"><p>%s <a href="%s">%s</a></p></div>',
-			/* translators: %s: available plugin version. */
-			esc_html( sprintf( __( 'INI Protector %s is available from WordPress.org.', 'ini-protector' ), $info->version ) ),
-			esc_url( $url ),
-			esc_html__( 'Update now', 'ini-protector' )
+			'<tr class="plugin-update-tr%s" id="ini-protector-update" data-slug="ini-protector" data-plugin="%s"><td colspan="%d" class="plugin-update colspanchange"><div class="update-message notice inline notice-warning notice-alt"><p>',
+			$active ? ' active' : '',
+			esc_attr( $file ),
+			(int) $columns
 		);
+		echo wp_kses_post(
+			sprintf(
+				/* translators: 1: plugin name, 2: details URL, 3: link attributes, 4: version, 5: update URL, 6: link attributes. */
+				__( 'There is a new version of %1$s available. <a href="%2$s" %3$s>View version %4$s details</a> or <a href="%5$s" %6$s>update now</a>.', 'ini-protector' ),
+				$name,
+				esc_url( $details ),
+				/* translators: 1: plugin name, 2: version. */
+				sprintf( 'class="thickbox open-plugin-details-modal" aria-label="%s"', esc_attr( sprintf( __( 'View %1$s version %2$s details', 'ini-protector' ), $name, $info->version ) ) ),
+				esc_html( $info->version ),
+				esc_url( self::install_url( $info->version ) ),
+				/* translators: %s: plugin name. */
+				sprintf( 'aria-label="%s"', esc_attr( sprintf( __( 'Update %s now', 'ini-protector' ), $name ) ) )
+			)
+		);
+		echo '</p></div></td></tr>';
+	}
+
+	/** Core marks a plugin row that has an update with `update`; match its borders for ours. */
+	public static function row_style(): void {
+		if ( ! current_user_can( 'update_plugins' ) || ! self::pending_offer() ) {
+			return;
+		}
+		$row = '.plugins tr[data-plugin="' . esc_attr( SECWP_BASENAME ) . '"]:not(.plugin-update-tr)';
+		echo '<style>' . $row . ' > th, ' . $row . ' > td { border-bottom: 0; box-shadow: none; }</style>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fixed CSS; the basename is a constant.
 	}
 
 	/** Use the native upgrader for one explicit update, including filesystem prompts. */
