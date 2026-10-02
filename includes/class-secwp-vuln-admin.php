@@ -249,7 +249,7 @@ class SecurityWP_Vuln_Admin {
 
 	private function render_errors( array $errors ): void {
 		echo '<div class="secwp-card secwp-card-wide"><div class="secwp-card-head"><span class="dashicons dashicons-info"></span><h2>' . esc_html__( 'Components that could not be checked', 'ini-protector' ) . '</h2></div><div class="secwp-card-body">';
-		echo '<p class="secwp-empty">' . esc_html__( 'The database could not be reached for these components in the last scan, so they are neither confirmed safe nor flagged. They will be retried on the next scan.', 'ini-protector' ) . '</p>';
+		echo '<p class="secwp-empty">' . esc_html__( 'These components could not be checked in the last scan (the database could not be reached, or the scan ran out of time), so they are not confirmed safe. Findings from earlier scans are kept. They will be retried on the next scan.', 'ini-protector' ) . '</p>';
 		echo '<ul class="secwp-signals">';
 		foreach ( $errors as $component => $reason ) {
 			printf( '<li><code>%s</code> — %s</li>', esc_html( (string) $component ), esc_html( (string) $reason ) );

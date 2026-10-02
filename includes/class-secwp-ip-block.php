@@ -91,6 +91,23 @@ class SecurityWP_IP_Block {
 		return is_array( $list ) ? $list : array();
 	}
 
+	/** Entries still being enforced (expired temp blocks left out). */
+	public static function active(): array {
+		return self::without_expired( self::all() );
+	}
+
+	/** The list minus temp blocks whose 'expires' has passed. */
+	private static function without_expired( array $list ): array {
+		$now = time();
+		return array_filter(
+			$list,
+			static function ( $entry ) use ( $now ) {
+				$expires = (int) ( $entry['expires'] ?? 0 );
+				return ! ( $expires > 0 && $now >= $expires );
+			}
+		);
+	}
+
 	/** Is the IP on the list AND not expired? */
 	public static function is_blocked( string $ip ): bool {
 		$entry = self::all()[ $ip ] ?? null;
@@ -119,7 +136,9 @@ class SecurityWP_IP_Block {
 		if ( $ip === self::current_ip() ) {
 			return new WP_Error( 'secwp_self_block', __( 'You can’t block your own current IP address.', 'ini-protector' ) );
 		}
-		$list = self::all();
+		// Expired temp blocks are otherwise only pruned when that IP comes back, so
+		// one-off scanners would fill the list and make every new block fail.
+		$list = self::without_expired( self::all() );
 		if ( ! isset( $list[ $ip ] ) && count( $list ) >= self::MAX ) {
 			return new WP_Error( 'secwp_block_full', __( 'The blocklist is full.', 'ini-protector' ) );
 		}

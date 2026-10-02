@@ -216,6 +216,12 @@ class SecurityWP_Integrity {
 		if ( ! SecurityWP_Features::is_on( self::FEATURE ) ) {
 			return;
 		}
+		// Same headroom the admin "Scan now" asks for: a full-tree hash can outlive the
+		// default limits, and a scan killed mid-run persists nothing and alerts no one.
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+		wp_raise_memory_limit( 'cron' );
 		( new self() )->run_scan();
 	}
 

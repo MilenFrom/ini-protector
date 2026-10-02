@@ -55,8 +55,12 @@ class SecurityWP_2FA {
 	const MAX_ATTEMPTS  = 10;
 	const ATTEMPT_WINDOW = 900;
 
-	/** Set when core authenticated this request with an application password. */
-	private static $via_app_password = false;
+	/**
+	 * ID of the user core authenticated with an application password in this request.
+	 * Scoped to that user: one request (an XML-RPC system.multicall) can authenticate
+	 * several accounts, and only the one that presented an app password may skip 2FA.
+	 */
+	private static $app_password_user_id = 0;
 
 	public function register(): void {
 		// Must be registered even when the feature is off, so it can never be the
@@ -91,8 +95,8 @@ class SecurityWP_2FA {
 		add_filter( 'manage_users_custom_column', array( __CLASS__, 'users_column_value' ), 10, 3 );
 	}
 
-	public static function flag_app_password(): void {
-		self::$via_app_password = true;
+	public static function flag_app_password( $user = null ): void {
+		self::$app_password_user_id = $user instanceof WP_User ? (int) $user->ID : 0;
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -136,7 +140,7 @@ class SecurityWP_2FA {
 			return $user;
 		}
 		// Application passwords are their own revocable credential — see the class docblock.
-		if ( self::$via_app_password ) {
+		if ( self::$app_password_user_id > 0 && self::$app_password_user_id === (int) $user->ID ) {
 			return $user;
 		}
 		// WP-CLI and cron have no browser to prompt in; WP-CLI is also the documented

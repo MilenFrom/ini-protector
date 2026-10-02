@@ -142,7 +142,7 @@ class SecurityWP_Traffic_Admin {
 
 		$enabled = class_exists( 'SecurityWP_Features' ) && SecurityWP_Features::is_on( 'traffic_log' );
 		$summary = class_exists( 'SecurityWP_Traffic_Log' ) ? SecurityWP_Traffic_Log::summary( $hours, 25 ) : array( 'enabled' => false );
-		$blocked = SecurityWP_IP_Block::all();
+		$blocked = SecurityWP_IP_Block::active(); // expired temp blocks are not blocks
 
 		echo '<div class="wrap secwp-wrap">';
 		echo '<h1 class="secwp-h1"><span class="dashicons dashicons-visibility"></span> ' . esc_html__( 'Traffic & threats', 'ini-protector' ) . '</h1>';
@@ -486,7 +486,7 @@ class SecurityWP_Traffic_Admin {
 	private function render_ip_detail( string $ip, int $hours ): void {
 		$enabled = class_exists( 'SecurityWP_Features' ) && SecurityWP_Features::is_on( 'traffic_log' );
 		$profile = class_exists( 'SecurityWP_Traffic_Log' ) ? SecurityWP_Traffic_Log::profile_ip( $ip, $hours ) : array( 'enabled' => false );
-		$blocked = SecurityWP_IP_Block::all();
+		$blocked = SecurityWP_IP_Block::active(); // expired temp blocks are not blocks
 		$is_blocked = isset( $blocked[ $ip ] );
 
 		echo '<div class="wrap secwp-wrap">';

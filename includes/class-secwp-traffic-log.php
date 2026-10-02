@@ -573,6 +573,36 @@ class SecurityWP_Traffic_Log {
 	}
 
 	/**
+	 * Re-apply the suggestion rules to one IP's rows from $since_ts (Unix time) onward.
+	 *
+	 * Auto-Block uses this so an IP is judged only on what it did after its last block:
+	 * re-scoring the full window would count the hits that earned that block again and
+	 * climb the ladder on one old offense every time a short block expired.
+	 *
+	 * @return array{ip:string,reason:string,severity:string}|null The suggestion, or null if clean.
+	 */
+	public static function suggestion_since( string $ip, int $since_ts ): ?array {
+		if ( ! self::table_exists() || '' === $ip ) {
+			return null;
+		}
+		global $wpdb;
+		$table = self::table_name();
+		$since = self::cutoff( max( 0, time() - $since_ts ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
+		$row = $wpdb->get_row( $wpdb->prepare(
+			"SELECT ip, COUNT(*) AS requests, SUM(suspicious) AS suspicious,
+			        SUM(status = 404) AS not_found, SUM(reason = 'login_post') AS login_attempts
+			 FROM {$table} WHERE ip = %s AND created_at >= %s GROUP BY ip",
+			$ip, $since
+		), ARRAY_A );
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+		$out = self::suggest_rules( array( $row ) );
+		return $out[0] ?? null;
+	}
+
+	/**
 	 * Single-IP activity profile over the last $hours: header counts, status-code mix, top paths,
 	 * distinct user-agents, request rate, the suspicious-reason breakdown, and a capped timeline of
 	 * the most recent requests. Drives the Traffic → IP drill-down. All read-only aggregation against

@@ -189,6 +189,11 @@ class SecurityWP_Altcha {
 
 	/** Lost password: attach an error so WP halts the reset. */
 	public function verify_lostpassword( $errors ): void {
+		// Since WP 5.7 an administrator's "Send password reset" (Users list, user-edit) also
+		// runs retrieve_password() and this hook, with no widget on the page to solve.
+		if ( is_user_logged_in() && current_user_can( 'edit_users' ) ) {
+			return;
+		}
 		if ( ! $this->check( $this->solution_from_post() ) && is_wp_error( $errors ) ) {
 			$errors->add( 'secwp_altcha', __( '<strong>Error:</strong> Please complete the verification challenge.', 'ini-protector' ) );
 		}

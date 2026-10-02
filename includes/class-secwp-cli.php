@@ -45,16 +45,22 @@ class SecurityWP_CLI_Integrity {
 	 *   - json
 	 * ---
 	 *
-	 * [--no-notify]
-	 * : Do not send email/webhook alerts for this run. The baseline is still updated.
+	 * [--[no-]notify]
+	 * : Send email/webhook alerts for this run (default). Pass --no-notify to skip them;
+	 * the baseline is still updated.
+	 * ---
+	 * default: true
+	 * ---
 	 *
-	 * [--quiet]
-	 * : Print nothing on a clean run (for cron). Changes are still printed.
+	 * [--only-changes]
+	 * : Print nothing on a clean run (for cron). Changes and alert-delivery failures are
+	 * still printed. (Not --quiet: that is WP-CLI's global flag, which this command never
+	 * sees and which would also silence the delivery-failure warnings.)
 	 *
 	 * ## EXAMPLES
 	 *
 	 *     # From system cron, hourly at :17
-	 *     17 * * * * cd /var/www/site && wp secwp integrity scan --quiet
+	 *     17 * * * * cd /var/www/site && wp secwp integrity scan --only-changes
 	 *
 	 *     wp secwp integrity scan --format=json
 	 *
@@ -63,9 +69,10 @@ class SecurityWP_CLI_Integrity {
 	public function scan( $args, $assoc ) {
 		$this->require_feature();
 
-		$quiet  = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'quiet', false );
+		$quiet  = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'only-changes', false );
 		$format = (string) WP_CLI\Utils\get_flag_value( $assoc, 'format', 'table' );
-		$notify = ! (bool) WP_CLI\Utils\get_flag_value( $assoc, 'no-notify', false );
+		// WP-CLI parses --no-notify as notify=false; there is never a 'no-notify' key.
+		$notify = (bool) WP_CLI\Utils\get_flag_value( $assoc, 'notify', true );
 
 		$report = ( new SecurityWP_Integrity() )->run_scan( array( 'notify' => $notify ) );
 		$counts = $report['counts'];

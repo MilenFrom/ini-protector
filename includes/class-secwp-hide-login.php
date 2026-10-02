@@ -47,6 +47,11 @@ class SecurityWP_Hide_Login {
 		add_filter( 'logout_url', array( $this, 'filter_login_url' ), 10, 1 );
 		add_filter( 'lostpassword_url', array( $this, 'filter_login_url' ), 10, 1 );
 		add_filter( 'register_url', array( $this, 'filter_login_url' ), 10, 1 );
+
+		// Core redirects a 404 on /login (and /wp-login.php/, /admin, /dashboard) to
+		// wp_login_url() / admin_url(); with the filters above that hands any bot that asks
+		// for /login a 302 straight to the secret slug.
+		remove_action( 'template_redirect', 'wp_redirect_admin_locations', 1000 );
 	}
 
 	/** Never touch non-browser entry points — REST (incl. our channel), AJAX, cron, CLI, XML-RPC. */

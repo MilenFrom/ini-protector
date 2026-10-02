@@ -73,7 +73,15 @@ class SecurityWP_Info_Disclosure {
 			'Options -Indexes',
 			'</IfModule>',
 			'<FilesMatch "(?i)(^\.ht|wp-config\.php|\.(bak|backup|old|orig|save|swp|sql|log|sh|ini|conf|env)$|readme\.html|license\.txt|wp-config-sample\.php)">',
+			// Apache 2.4 syntax only where mod_authz_core is loaded (an unknown directive is a
+			// site-wide 500); the 2.2 equivalent otherwise.
+			'<IfModule mod_authz_core.c>',
 			'Require all denied',
+			'</IfModule>',
+			'<IfModule !mod_authz_core.c>',
+			'Order allow,deny',
+			'Deny from all',
+			'</IfModule>',
 			'</FilesMatch>',
 		);
 	}

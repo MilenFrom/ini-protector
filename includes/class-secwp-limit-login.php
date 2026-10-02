@@ -20,7 +20,10 @@ class SecurityWP_Limit_Login {
 
 		add_filter( 'authenticate', array( $this, 'check_lockout' ), 30, 1 );
 		add_action( 'wp_login_failed', array( $this, 'on_failed' ) );
-		add_action( 'wp_login', array( $this, 'on_success' ) );
+		// A successful login deliberately does not reset the per-IP count: any account
+		// would do, so an attacker could interleave logins to their own account with
+		// guesses at someone else's and never reach the threshold. The count lapses on
+		// its own once the IP stops failing for the lockout window.
 	}
 
 	private function max(): int {
@@ -104,10 +107,5 @@ class SecurityWP_Limit_Login {
 		if ( $attempts >= $this->max() ) {
 			set_transient( $this->key( 'lock' ), 1, $this->lockout_seconds() );
 		}
-	}
-
-	public function on_success(): void {
-		delete_transient( $this->key( 'count' ) );
-		delete_transient( $this->key( 'lock' ) );
 	}
 }

@@ -403,6 +403,12 @@ class SecurityWP_Admin {
 				printf( '<label class="secwp-field-label" for="%s">%s</label>', esc_attr( $id ), esc_html( $label ) );
 				printf( '<input type="number" id="%s" name="%s" value="%s" class="secwp-input small" />', esc_attr( $id ), esc_attr( $name ), esc_attr( (string) $value ) );
 				break;
+			case 'textarea':
+				// Must be a real <textarea>: browsers strip line breaks from a text input's
+				// value, which would merge one-per-line entries into a single invalid one.
+				printf( '<label class="secwp-field-label" for="%s">%s</label>', esc_attr( $id ), esc_html( $label ) );
+				printf( '<textarea id="%s" name="%s" rows="5" placeholder="%s" class="secwp-input">%s</textarea>', esc_attr( $id ), esc_attr( $name ), esc_attr( $ph ), esc_textarea( (string) $value ) );
+				break;
 			case 'password':
 				printf( '<label class="secwp-field-label" for="%s">%s</label>', esc_attr( $id ), esc_html( $label ) );
 				printf( '<input type="password" id="%s" name="%s" value="" placeholder="%s" class="secwp-input" autocomplete="new-password" />', esc_attr( $id ), esc_attr( $name ), esc_attr__( '••••• (unchanged)', 'ini-protector' ) );

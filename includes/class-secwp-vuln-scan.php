@@ -101,15 +101,23 @@ class SecurityWP_Vuln_Scan {
 		$checked   = 0;
 		$truncated = false;
 
+		$unchecked = array(); // "type:slug" => installed version, for components not checked this run.
+
 		foreach ( $this->components() as $c ) {
-			if ( time() > $deadline ) {
-				$truncated = true;
-				break;
+			$ckey = $c['type'] . ':' . $c['slug'];
+			if ( $truncated || time() > $deadline ) {
+				// Out of time: record what was skipped, so the run reads as incomplete
+				// rather than clean and these components keep their earlier findings.
+				$truncated          = true;
+				$errors[ $ckey ]    = 'time_budget_exceeded';
+				$unchecked[ $ckey ] = $c['version'];
+				continue;
 			}
 			$resp = $this->fetch( $c['type'], $c['slug'], $c['version'], $force );
 
 			if ( is_wp_error( $resp ) ) {
-				$errors[ $c['type'] . ':' . $c['slug'] ] = $resp->get_error_code();
+				$errors[ $ckey ]    = $resp->get_error_code();
+				$unchecked[ $ckey ] = $c['version'];
 				continue;
 			}
 			++$checked;
@@ -137,6 +145,19 @@ class SecurityWP_Vuln_Scan {
 			$prev['last_error']  = time();
 			update_option( self::OPT_RESULTS, $prev, false );
 			return $prev;
+		}
+
+		// A partial run must not forget what it could not re-check: carry forward the
+		// previous findings of unchecked components (same installed version), so they
+		// stay on the page and in the known set instead of re-alerting as "new" later.
+		if ( $unchecked ) {
+			$prev = self::get_results();
+			foreach ( (array) ( $prev['findings'] ?? array() ) as $f ) {
+				$fkey = (string) ( $f['type'] ?? '' ) . ':' . (string) ( $f['slug'] ?? '' );
+				if ( isset( $unchecked[ $fkey ], $f['fingerprint'] ) && (string) ( $f['installed'] ?? '' ) === $unchecked[ $fkey ] ) {
+					$findings[] = $f;
+				}
+			}
 		}
 
 		$status = ( $errors || $truncated ) ? 'partial' : 'ok';

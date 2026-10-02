@@ -172,6 +172,17 @@ class SecurityWP_Autoblock {
 				continue;
 			}
 
+			// Judge an IP blocked within this window only on what it did since that block;
+			// otherwise the hits that earned it are counted again once it expires.
+			$last_block = (int) ( $state[ $ip ]['last_block_at'] ?? 0 );
+			if ( $last_block > time() - self::EVAL_HOURS * HOUR_IN_SECONDS ) {
+				$fresh = SecurityWP_Traffic_Log::suggestion_since( $ip, $last_block );
+				if ( null === $fresh ) {
+					continue;
+				}
+				$why = (string) ( $fresh['reason'] ?? $why );
+			}
+
 			if ( ! $enforce ) {
 				// Suggest-only: decide nothing persistent. The IP Block page already
 				// shows this candidate (same suggested[] source); leave it for Apply.
