@@ -140,6 +140,11 @@ The widget runs locally in the browser; no ALTCHA service account is required.
 
 == Changelog ==
 
+= 1.10.1 =
+* After you click Check for updates on the Plugins screen, an available release now appears as WordPress's own yellow update row under INI Protector — "There is a new version… View details or update now" — instead of a banner at the top of the page. The offer stays until you update (or for a week), and steps aside as soon as WordPress's regular update notice lists the same release.
+* Deleting the plugin now also removes the stored update offer on single-site installs.
+* The translation template now includes every string in the plugin, including several added in 1.10.0.
+
 = 1.10.0 =
 * Security: fixed a two-factor bypass over XML-RPC. One multicall request could sign in a low-privilege account with an application password and then an administrator with only a password. The application-password exemption now applies only to the account that presented it.
 * Security: a successful login no longer resets the failed-login count for that IP, so an attacker can no longer avoid lockout by signing in to their own account between guesses.
