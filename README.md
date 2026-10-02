@@ -22,6 +22,10 @@ Optional, defined in `wp-config.php`:
 | `SECWP_TRUST_PROXY` | Legacy boolean form. Still honoured, but it cannot verify who sent the header, so it is limited to public addresses and reported as a warning by Security → Scan. Prefer `SECWP_TRUSTED_PROXIES`. |
 | `SECWP_VULN_API_BASE` | Override the vulnerability database endpoint. |
 
+```php
+define( 'SECWP_TRUSTED_PROXIES', '173.245.48.0/20, 2400:cb00::/32' );
+```
+
 ## Traffic log sizing
 
 The traffic monitor is bounded by two limits, and whichever is reached first
@@ -29,11 +33,35 @@ applies: **90 days** of history and **250,000 requests** (roughly 90 MB). On a
 busy site the row cap is usually the one that bites. Either can be set to "no
 limit" in Configure → Traffic monitor; the Traffic page shows current usage and
 projects growth. Requests inside the auto-block evaluation window are never
-deleted by the row cap, so lowering it cannot starve automatic blocking.
+deleted by the row cap, so lowering it cannot starve automatic blocking. The
+row count can therefore temporarily exceed the configured cap. Existing saved
+limits are preserved when upgrading.
 
-```php
-define( 'SECWP_TRUSTED_PROXIES', '173.245.48.0/20, 2400:cb00::/32' );
-```
+## Stable updates
+
+On the WordPress **Plugins** screen, use **Check for updates** beside INI Protector
+to check the WordPress.org directory without waiting for the normal update-check
+cache. If a newer compatible release is available, **Update now** installs the
+official WordPress.org ZIP through WordPress's installer. Settings and activation
+are preserved. This check uses WordPress.org releases; GitHub development commits
+are not offered as plugin updates.
+
+## WordPress salt changes and recovery
+
+Author URL tokens and asset cache tokens are independent of WordPress's
+authentication salts. Changing those salts does not rotate these public tokens.
+The 1.9.2 upgrade retired older salt-derived author URLs once; sites upgrading
+from an earlier version should regenerate author links and clear page caches.
+
+Two-factor authenticator secrets are encrypted using the site's secure-auth salts.
+After rotating those salts, sign in with an unused recovery code, turn off 2FA
+from your profile with a second unused recovery code in the confirmation box and
+save, then enroll again and save the new recovery codes.
+Without a recovery code, an authorized administrator can reset enrollment with
+`wp secwp 2fa reset <user>`. Unreadable secrets do not silently disable 2FA.
+
+Pending sign-ins and site-password cookies may also be invalidated: restart login
+or re-enter the site password. Reload an open CAPTCHA form for a fresh challenge.
 
 ## Development installation
 

@@ -42,8 +42,9 @@ is an independent toggle, grouped into three areas:
   Referrer-Policy, Permissions-Policy).
 * ALTCHA proof-of-work login captcha (self-hosted, no third-party calls).
 * Traffic monitor — records incoming requests so suspicious activity is visible,
-  with a per-IP drill-down. Keeps the full history by default; you can cap it by
-  age, by number of requests, or both.
+  with a per-IP drill-down. Defaults to 90 days and 250,000 requests; saved limits
+  are preserved. Either limit can be disabled. The row cap preserves requests
+  inside the auto-block evaluation window, so the count can temporarily exceed it.
 * Auto-block escalation — a dedicated **IP Block** page that surfaces the
   traffic monitor's suggested blocks for one-click review (Block Suggestion
   System), and an optional **Auto-Block** mode that blocks offending IPs
@@ -138,6 +139,25 @@ Build instructions are in that project's README and package.json.
 The widget runs locally in the browser; no ALTCHA service account is required.
 
 == Changelog ==
+
+= 1.10.0 =
+* Security: fixed a two-factor bypass over XML-RPC. One multicall request could sign in a low-privilege account with an application password and then an administrator with only a password. The application-password exemption now applies only to the account that presented it.
+* Security: a successful login no longer resets the failed-login count for that IP, so an attacker can no longer avoid lockout by signing in to their own account between guesses.
+* Security: login, two-factor and site-password attempt limits, and single-use codes (two-factor step, recovery codes, CAPTCHA solutions), are now race-free — parallel requests can no longer exceed a limit or reuse a code.
+* Security: **turning on two-factor authentication now revokes the account's existing application passwords**, and an account that must enrol cannot create new ones until it has. **Turning 2FA off or replacing recovery codes from your profile now asks for your current code** (or a recovery code); `wp secwp 2fa reset` still works for administrators.
+* Security: closed several ways to reach a hidden login page or wp-admin without the secret address (for example `//wp-login.php` and `/wp-login.php/x`), and `/login` no longer redirects to the secret address.
+* Security: client IPs are normalised for IPv6, and private, reserved and proxy addresses are never auto-blocked (manual blocks still work). **CF-Connecting-IP is now read only if you define SECWP_TRUST_CF_CONNECTING_IP** — see Notes. Cloudflare sites remain covered through X-Forwarded-For.
+* Security: the integrity webhook also refuses alternative spellings of link-local addresses, and `/wp/v2/users?slug=` no longer confirms usernames to visitors who cannot list users.
+* **Deleting the plugin from the Plugins screen now removes all of its data** — settings (including the site password and webhook secret), the traffic and integrity tables, and users' two-factor enrolment. Deactivating does not.
+* **With comments disabled, comment feeds now return 404 and the comments REST routes are hidden from non-moderators.**
+* Fixed: re-saving settings could merge the auto-block allowlist and integrity exclusions into one line, and the 2FA roles setting could silently drop enforcement for administrators.
+* Fixed: auto-block could escalate one burst into a 5-day block, and expired temporary blocks could fill the blocklist until new blocks failed.
+* Fixed: vulnerability scans no longer show a false all-clear after a partial scan or an API error; components the database has no data on are listed separately.
+* Fixed: file integrity scans handle non-UTF-8 filenames and wp-content outside the WordPress folder, cannot overlap, and no longer duplicate alert history. The CLI now accepts `--[no-]notify` and `--only-changes` (**`--quiet` is replaced by `--only-changes`**).
+* Fixed: the security scan no longer fails on WooCommerce's protective .htaccess or crashes on an unreadable uploads folder, and the .htaccess rules no longer risk a server error on hosts without the expected Apache modules.
+* Fixed: the CAPTCHA no longer blocks the admin "Send password reset" action or front-end login forms; email protection keeps custom link text, images, attributes and `?subject=`.
+* Traffic monitor: now records author enumeration, XML-RPC, hidden-login and flood requests it previously missed. **Times are stored in UTC** (existing rows are converted in the background) so daylight-saving changes no longer skew the auto-block window; the admin screens still show local time.
+* Smaller fixes to 2FA in the session-expired popup, the Nginx snippet, .htaccess cleanup, an early translation-loading notice on WordPress 6.7+, and traffic statistics speed.
 
 = 1.9.7 =
 * Traffic history now keeps at most 250,000 requests by default (about 90 MB) instead of being unlimited. The 90-day window is unchanged, and whichever limit is reached first applies — on a busy site that is usually the row cap. **If your log is already larger than this, the excess is deleted the first time the log prunes after updating.** Choose "No limit" in Configure → Traffic monitor to keep the old behaviour; a limit you set yourself is never overridden.
