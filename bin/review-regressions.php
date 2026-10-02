@@ -176,6 +176,14 @@ add_filter( 'pre_http_request', $limited );
 inipr_assert( is_wp_error( inipr_private( new SecurityWP_Vuln_Scan(), 'fetch', 'plugin', 'inipr-rate-limited', '1.0', true ) ), 'HTTP 429 from the vulnerability API is an error' );
 remove_filter( 'pre_http_request', $limited );
 delete_transient( 'secwp_vuln_' . md5( 'plugin|inipr-rate-limited|1.0' ) );
+$in_band = static function () {
+	return array( 'response' => array( 'code' => 200 ), 'body' => '{"error":1,"message":"Not found","data":null}', 'headers' => array(), 'cookies' => array() );
+};
+add_filter( 'pre_http_request', $in_band );
+$resp = inipr_private( new SecurityWP_Vuln_Scan(), 'fetch', 'plugin', 'inipr-in-band', '1.0', true );
+inipr_assert( is_wp_error( $resp ) && 'api_error' === $resp->get_error_code(), 'in-band API error is not cached as "no vulnerabilities"' );
+remove_filter( 'pre_http_request', $in_band );
+delete_transient( 'secwp_vuln_' . md5( 'plugin|inipr-in-band|1.0' ) );
 
 // The app-password 2FA skip belongs to the user who presented it, not the whole request
 // (one XML-RPC system.multicall can authenticate several accounts).

@@ -198,12 +198,17 @@ class SecurityWP_Vuln_Admin {
 		if ( in_array( $results['scan_status'], array( 'partial', 'error' ), true ) && ! empty( $results['errors'] ) ) {
 			$this->render_errors( $results['errors'] );
 		}
+		if ( ! empty( $results['not_covered'] ) ) {
+			$this->render_not_covered( (array) $results['not_covered'] );
+		}
 
 		if ( empty( $findings ) ) {
 			echo '<div class="secwp-card secwp-card-wide"><div class="secwp-card-body"><p class="secwp-empty">';
 			echo ( 'never' === $results['scan_status'] )
 				? esc_html__( 'No scan has run yet. Click “Scan now” to check your components.', 'ini-protector' )
-				: esc_html__( 'No known vulnerabilities found in your installed plugins, themes, or WordPress core. 🎉', 'ini-protector' );
+				: ( empty( $results['not_covered'] )
+					? esc_html__( 'No known vulnerabilities found in your installed plugins, themes, or WordPress core. 🎉', 'ini-protector' )
+					: esc_html__( 'No known vulnerabilities found in the components the database has data on.', 'ini-protector' ) );
 			echo '</p></div></div></div>';
 			return;
 		}
@@ -245,6 +250,16 @@ class SecurityWP_Vuln_Admin {
 		echo '</div>';
 
 		echo '</div></div>';
+	}
+
+	private function render_not_covered( array $components ): void {
+		echo '<div class="secwp-card secwp-card-wide"><div class="secwp-card-head"><span class="dashicons dashicons-info-outline"></span><h2>' . esc_html__( 'Components the database gave no data on', 'ini-protector' ) . '</h2></div><div class="secwp-card-body">';
+		echo '<p class="secwp-empty">' . esc_html__( 'The vulnerability database answered with an error for these instead of a result. That is usual for custom and premium plugins it does not track, and can also be a temporary fault. Either way they are not confirmed safe. Findings from earlier scans are kept.', 'ini-protector' ) . '</p>';
+		echo '<ul class="secwp-signals">';
+		foreach ( $components as $component => $message ) {
+			printf( '<li><code>%s</code>%s</li>', esc_html( (string) $component ), '' !== (string) $message ? ' — ' . esc_html( (string) $message ) : '' );
+		}
+		echo '</ul></div></div>';
 	}
 
 	private function render_errors( array $errors ): void {
