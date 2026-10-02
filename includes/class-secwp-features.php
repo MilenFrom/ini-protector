@@ -312,6 +312,12 @@ class SecurityWP_Features {
 		$clean   = $current; // Start from existing values; only overwrite submitted fields.
 
 		foreach ( $fields as $fkey => $def ) {
+			// A blank password field means "keep" (see below), so clearing a stored secret is
+			// its own explicit checkbox, cfg[__clear][field].
+			if ( 'password' === $def['type'] && ! empty( $values['__clear'][ $fkey ] ) ) {
+				$clean[ $fkey ] = '';
+				continue;
+			}
 			// An unchecked checkbox submits nothing, so "absent" must mean false — not "unchanged".
 			// (Only do this when the form that owns this field was actually submitted: we detect that
 			// by a hidden marker field cfg[__submitted] so a partial save can't silently clear boxes.)

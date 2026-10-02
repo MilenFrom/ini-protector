@@ -51,7 +51,9 @@ class SecurityWP_Vuln_Scan {
 	/** Hook the cron callback and lazily heal the schedule to the toggle. */
 	public function register(): void {
 		add_action( self::HOOK, array( __CLASS__, 'run_scan_cron' ) );
-		self::sync_schedule();
+		// On init, like Integrity and Auto-Block: scheduling runs the cron_schedules filter,
+		// and on plugins_loaded that loads translations too early (a notice since WP 6.7).
+		add_action( 'init', array( __CLASS__, 'sync_schedule' ), 11 );
 	}
 
 	/**

@@ -139,6 +139,28 @@ foreach ( array( '10.0.0.5', '192.168.1.1', '127.0.0.1', 'fd00::1' ) as $interna
 	inipr_assert( SecurityWP_Autoblock::is_exempt( $internal ), 'internal address never auto-blocked: ' . $internal );
 }
 
+// Webhook metadata guard sees through alternate spellings of 169.254.169.254.
+foreach ( array( '[::ffff:169.254.169.254]', '2852039166', '0xa9fea9fe', '169.254.43518' ) as $host ) {
+	inipr_assert( inipr_private( 'SecurityWP_Integrity_Alert', 'is_link_local', $host ), 'webhook refuses metadata host spelled ' . $host );
+}
+inipr_assert( ! inipr_private( 'SecurityWP_Integrity_Alert', 'is_link_local', '10.0.0.5' ), 'webhook still allows a private collector' );
+
+// Traffic monitor reads the query string for enumeration probes.
+$assess = inipr_private( 'SecurityWP_Traffic_Log', 'assess', 'GET', '/', 200, 'ua', 'author=2' );
+inipr_assert( 'user_enum' === $assess[1], '?author=N flagged as user enumeration' );
+$assess = inipr_private( 'SecurityWP_Traffic_Log', 'assess', 'POST', '/xmlrpc.php', 200, 'ua' );
+inipr_assert( 'xmlrpc' === $assess[1], 'xmlrpc.php gets its own reason' );
+
+// A deny-only .htaccess in uploads (WooCommerce) is not reported as executable.
+$deny_dir = wp_get_upload_dir()['basedir'] . '/inipr-deny-test';
+wp_mkdir_p( $deny_dir );
+file_put_contents( $deny_dir . '/.htaccess', "deny from all\n" );
+inipr_assert( ! inipr_private( 'SecurityWP_Security_Scan', 'php_in_dir', wp_get_upload_dir()['basedir'], 200 ), 'deny-only .htaccess in uploads not flagged' );
+file_put_contents( $deny_dir . '/.htaccess', "AddHandler application/x-httpd-php .jpg\n" );
+inipr_assert( (bool) inipr_private( 'SecurityWP_Security_Scan', 'php_in_dir', wp_get_upload_dir()['basedir'], 200 ), 'handler-changing .htaccess in uploads still flagged' );
+unlink( $deny_dir . '/.htaccess' );
+rmdir( $deny_dir );
+
 // The app-password 2FA skip belongs to the user who presented it, not the whole request
 // (one XML-RPC system.multicall can authenticate several accounts).
 SecurityWP_2FA::flag_app_password( get_userdata( 1 ) );

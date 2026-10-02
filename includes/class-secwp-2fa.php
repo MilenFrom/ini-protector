@@ -241,6 +241,19 @@ class SecurityWP_2FA {
 		wp_set_auth_cookie( $user->ID, $remember );
 		do_action( 'wp_login', $user->user_login, $user );
 
+		// The session-expired popup (wp-auth-check) loads the login in an iframe with
+		// interim-login=1 and closes itself when the page reports success. Redirecting
+		// would load wp-admin inside the popup instead. Mirror core's success page.
+		if ( ! empty( $_REQUEST['interim-login'] ) && function_exists( 'login_header' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nonce checked above.
+			$GLOBALS['interim_login'] = 'success'; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- read by login_header() for the success body class.
+			login_header( '', '<p class="message">' . esc_html__( 'You have logged in successfully.', 'ini-protector' ) . '</p>' );
+			echo '</div>';
+			/** This action is documented in wp-login.php */
+			do_action( 'login_footer' );
+			echo '</body></html>';
+			exit;
+		}
+
 		$redirect_to = '' !== (string) $redirect_to ? (string) $redirect_to : admin_url();
 		wp_safe_redirect( $redirect_to );
 		exit;
@@ -280,6 +293,9 @@ class SecurityWP_2FA {
 			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>" />
 			<input type="hidden" name="secwp_token" value="<?php echo esc_attr( $token ); ?>" />
 			<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_to ); ?>" />
+			<?php if ( ! empty( $_REQUEST['interim-login'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- presentation flag only. ?>
+				<input type="hidden" name="interim-login" value="1" />
+			<?php endif; ?>
 			<p class="secwp-2fa-intro">
 				<?php
 				printf(

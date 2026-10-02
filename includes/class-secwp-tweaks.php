@@ -347,13 +347,23 @@ class SecurityWP_Tweaks {
 
 	/** Replace legacy values even when masking is disabled; never copy auth salts into options. */
 	public static function migrate_asset_version_salt(): void {
+		// This runs on every request, so the marker is autoloaded: read from the options
+		// already in memory instead of costing a query per page load.
+		$autoloaded = wp_load_alloptions();
+		if ( isset( $autoloaded['secwp_ver_salt_schema'] ) && 2 === (int) $autoloaded['secwp_ver_salt_schema'] ) {
+			return;
+		}
 		if ( 2 === (int) get_option( 'secwp_ver_salt_schema', 0 ) ) {
+			// Migrated by a version that stored the marker non-autoloaded; fix that once.
+			if ( function_exists( 'wp_set_option_autoload' ) ) {
+				wp_set_option_autoload( 'secwp_ver_salt_schema', true );
+			}
 			return;
 		}
 		if ( false !== get_option( self::OPT_VER_SALT, false ) ) {
 			update_option( self::OPT_VER_SALT, self::generate_asset_version_salt(), true );
 		}
-		update_option( 'secwp_ver_salt_schema', 2, false );
+		update_option( 'secwp_ver_salt_schema', 2, true );
 	}
 
 	/** A fresh secret, in the same shape whether it is the first one or a rotation. */

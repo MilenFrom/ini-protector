@@ -26,13 +26,15 @@ function secwp_uninstall_site(): void {
 		$wpdb->esc_like( 'secwp_' ) . '%',
 		$wpdb->esc_like( '_transient_secwp_' ) . '%',
 		$wpdb->esc_like( '_transient_timeout_secwp_' ) . '%',
+		$wpdb->esc_like( 'inipr_author_' ) . '%', // Author-slug tokens and their reverse lookups.
 	);
 	$wpdb->query(
 		$wpdb->prepare(
-			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
 			$like[0],
 			$like[1],
-			$like[2]
+			$like[2],
+			$like[3]
 		)
 	);
 

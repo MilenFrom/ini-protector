@@ -60,3 +60,6 @@
 /* Dark orange remains readable on the white feature cards. */
 .secwp-retention-warning { display:inline; margin-left:10px; color:#9a4100; line-height:1.6; }
 .secwp-retention-warning a { color:inherit; text-decoration:underline; }
+.secwp-nginx-snippet { margin-top:6px; font-size:13px; }
+.secwp-nginx-snippet summary { cursor:pointer; color:#2271b1; }
+.secwp-nginx-snippet .secwp-pre { background:#1d2327; color:#f0f0f1; padding:12px 14px; border-radius:4px; overflow:auto; font-size:12px; margin:8px 0; white-space:pre; }

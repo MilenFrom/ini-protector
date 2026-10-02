@@ -87,6 +87,9 @@ add_action(
 		// Apply every enabled hardening tweak.
 		( new SecurityWP_Features() )->apply();
 
+		// Keeps the .htaccess rules matching the info-disclosure toggle, on or off.
+		SecurityWP_Info_Disclosure::sync_hook();
+
 		// IP blocklist gate — always on (independent of the traffic monitor), so
 		// a manually blocked IP stays blocked regardless of tweak state.
 		( new SecurityWP_IP_Block() )->register();

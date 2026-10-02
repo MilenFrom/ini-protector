@@ -416,12 +416,35 @@ class SecurityWP_Integrity {
 	}
 
 	/**
+	 * The path as the path rules (exclusions, media prefixes, critical locations) see it.
+	 *
+	 * Those rules are written as 'wp-content/…'. When WP_CONTENT_DIR lives outside ABSPATH
+	 * (Bedrock and similar layouts) relative_path() leaves its files absolute, so no rule
+	 * matched: uploads were hashed in full, a .php in uploads or a mu-plugin change was not
+	 * critical, and the admin's exclusions were ignored. Map that directory to 'wp-content/'
+	 * here. The stored baseline path is unchanged, so existing baselines stay valid.
+	 *
+	 * @param string $path Absolute path, or a path already returned by relative_path().
+	 */
+	public function rule_path( string $path ): string {
+		$path = str_replace( '\\', '/', $path );
+		if ( defined( 'WP_CONTENT_DIR' ) ) {
+			$content = untrailingslashit( str_replace( '\\', '/', WP_CONTENT_DIR ) ) . '/';
+			if ( '/' !== $content && 0 === strpos( $path, $content ) ) {
+				return 'wp-content/' . substr( $path, strlen( $content ) );
+			}
+		}
+		return $this->relative_path( $path );
+	}
+
+	/**
 	 * Is this a path where a change is very likely to matter? Drives the "critical"
 	 * flag that sorts the report and leads the email. Derived from where real
 	 * WordPress compromises land: core directories, wp-config, mu-plugins,
 	 * .htaccess, theme function files, and anything at the web root.
 	 */
 	public function is_critical( string $rel ): bool {
+		$rel  = $this->rule_path( $rel );
 		$base = strtolower( basename( $rel ) );
 
 		if ( 'wp-config.php' === $base || '.htaccess' === $base || '.user.ini' === $base ) {
@@ -505,7 +528,7 @@ class SecurityWP_Integrity {
 					if ( isset( $dirnames[ $current->getFilename() ] ) ) {
 						return false;
 					}
-					$rel = $this->relative_path( $current->getPathname() );
+					$rel = $this->rule_path( $current->getPathname() );
 					foreach ( $blind as $p ) {
 						if ( $rel === $p || 0 === strpos( $rel . '/', $p . '/' ) ) {
 							return false;
@@ -566,7 +589,7 @@ class SecurityWP_Integrity {
 
 	/** Is this absolute path inside one of the given ABSPATH-relative prefixes? */
 	private function under_prefix( string $abs, array $prefixes ): bool {
-		$rel = $this->relative_path( $abs );
+		$rel = $this->rule_path( $abs );
 		foreach ( $prefixes as $p ) {
 			if ( $rel === $p || 0 === strpos( $rel, $p . '/' ) ) {
 				return true;
@@ -723,7 +746,7 @@ class SecurityWP_Integrity {
 		update_option( self::OPT_RESULTS, $report, false );
 
 		if ( $changes ) {
-			$this->push_history( $changes, $seq );
+			$this->push_history( $changes, $seq, $adopt );
 			do_action(
 				'secwp_platform_event',
 				'integrity_change',
@@ -885,13 +908,35 @@ class SecurityWP_Integrity {
 	}
 
 	/** Append to the bounded rolling history (newest first). */
-	private function push_history( array $changes, int $seq ): void {
+	/**
+	 * Record changes in the history log.
+	 *
+	 * While every alert channel keeps failing, the baseline is not adopted and the same
+	 * changes are reported on every run. They are recorded once: entries from such a run
+	 * are marked pending, and a later run skips changes already pending. Adoption clears
+	 * the marks, so the same change happening again later is recorded again.
+	 */
+	private function push_history( array $changes, int $seq, bool $adopted = true ): void {
 		$history = (array) get_option( self::OPT_HISTORY, array() );
 		$now     = time();
 		$add     = array();
 
+		$pending = array();
+		foreach ( $history as $i => $entry ) {
+			if ( is_array( $entry ) && ! empty( $entry['pending'] ) ) {
+				$pending[ (string) ( $entry['key'] ?? '' ) ] = true;
+				if ( $adopted ) {
+					unset( $history[ $i ]['pending'] );
+				}
+			}
+		}
+
 		foreach ( array_slice( $changes, 0, self::HISTORY_MAX ) as $ch ) {
-			$add[] = array(
+			$key = $ch['state'] . '|' . $ch['path'] . '|' . ( '' !== (string) ( $ch['hash'] ?? '' ) ? $ch['hash'] : (string) ( $ch['old_hash'] ?? '' ) );
+			if ( isset( $pending[ $key ] ) ) {
+				continue; // Already recorded by an earlier run whose alert failed.
+			}
+			$row = array(
 				'seq'       => $seq,
 				'at'        => $now,
 				'state'     => $ch['state'],
@@ -899,9 +944,14 @@ class SecurityWP_Integrity {
 				'critical'  => ! empty( $ch['critical'] ),
 				'timestomp' => ! empty( $ch['timestomp'] ),
 			);
+			if ( ! $adopted ) {
+				$row['pending'] = true;
+				$row['key']     = $key;
+			}
+			$add[] = $row;
 		}
 
-		$history = array_slice( array_merge( $add, $history ), 0, self::HISTORY_MAX );
+		$history = array_slice( array_merge( $add, array_values( $history ) ), 0, self::HISTORY_MAX );
 		update_option( self::OPT_HISTORY, $history, false );
 	}
 

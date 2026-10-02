@@ -206,7 +206,11 @@ class SecurityWP_Traffic_Log {
 		$ua      = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( (string) wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 ) : '';
 		$referer = isset( $_SERVER['HTTP_REFERER'] ) ? substr( esc_url_raw( (string) wp_unslash( $_SERVER['HTTP_REFERER'] ) ), 0, 255 ) : '';
 
-		list( $suspicious, $reason ) = self::assess( $method, $path, $status, $ua );
+		$query    = (string) wp_parse_url( $uri, PHP_URL_QUERY );
+		// The hidden-login slug serves wp-login.php under another path; $pagenow says which.
+		$is_login = isset( $GLOBALS['pagenow'] ) && 'wp-login.php' === $GLOBALS['pagenow'];
+
+		list( $suspicious, $reason ) = self::assess( $method, $path, $status, $ua, $query, $is_login );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->insert(
@@ -235,11 +239,13 @@ class SecurityWP_Traffic_Log {
 	 *
 	 * @return array{0:bool,1:string} [ suspicious, reason ]
 	 */
-	private static function assess( string $method, string $path, int $status, string $ua ): array {
+	private static function assess( string $method, string $path, int $status, string $ua, string $query = '', bool $is_login = false ): array {
 		$p = strtolower( $path );
+		$q = strtolower( rawurldecode( $query ) );
 
-		// Probing for well-known sensitive files / common vuln paths.
-		$bad_paths = array( '/.env', '/.git', 'wp-config.php', '/phpinfo', '/xmlrpc.php', '/.aws',
+		// Probing for well-known sensitive files / common vuln paths. (xmlrpc.php has its own
+		// reason below; listing it here too made that reason unreachable.)
+		$bad_paths = array( '/.env', '/.git', 'wp-config.php', '/phpinfo', '/.aws',
 			'/vendor/', '/composer.json', '/wp-content/debug.log', '/.htpasswd', '/backup', '/.ssh' );
 		foreach ( $bad_paths as $needle ) {
 			if ( false !== strpos( $p, $needle ) ) {
@@ -253,12 +259,15 @@ class SecurityWP_Traffic_Log {
 		}
 
 		// User/author enumeration probes.
-		if ( false !== strpos( $p, '/wp-json/wp/v2/users' ) || preg_match( '/[?&]author=\d+/', $path ) ) {
+		// $path has no query string, so ?author=N and ?rest_route=/wp/v2/users are read from $q.
+		if ( false !== strpos( $p, '/wp-json/wp/v2/users' )
+			|| preg_match( '/(^|&)author=\d+/', $q )
+			|| preg_match( '#(^|&)rest_route=/wp/v2/users#', $q ) ) {
 			return array( true, 'user_enum' );
 		}
 
 		// A POST to wp-login.php is a login attempt (brute-force when repeated from one IP).
-		if ( 'POST' === $method && false !== strpos( $p, 'wp-login.php' ) ) {
+		if ( 'POST' === $method && ( $is_login || false !== strpos( $p, 'wp-login.php' ) ) ) {
 			return array( true, 'login_post' );
 		}
 
@@ -547,6 +556,23 @@ class SecurityWP_Traffic_Log {
 			$since, $limit
 		), ARRAY_A );
 
+		// The table above ranks by suspicious hits, so an IP flooding with clean requests is
+		// never in it once enough IPs have a 404 or two; the flood rule needs the busiest IPs.
+		$busiest = $wpdb->get_results( $wpdb->prepare(
+			"SELECT ip, COUNT(*) AS requests, SUM(suspicious) AS suspicious,
+			        SUM(status = 404) AS not_found, SUM(reason = 'login_post') AS login_attempts
+			 FROM {$table} WHERE created_at >= %s AND ip <> ''
+			 GROUP BY ip HAVING requests >= 1000 ORDER BY requests DESC LIMIT %d",
+			$since, $limit
+		), ARRAY_A );
+		$candidates = (array) $top_ips;
+		$listed     = array_flip( array_column( $candidates, 'ip' ) );
+		foreach ( (array) $busiest as $row ) {
+			if ( ! isset( $listed[ $row['ip'] ] ) ) {
+				$candidates[] = $row;
+			}
+		}
+
 		$top_paths = $wpdb->get_results( $wpdb->prepare(
 			"SELECT path, reason, COUNT(*) AS hits, COUNT(DISTINCT ip) AS ips
 			 FROM {$table} WHERE created_at >= %s AND suspicious = 1
@@ -576,7 +602,7 @@ class SecurityWP_Traffic_Log {
 			'top_ips'      => array_map( array( __CLASS__, 'with_verdict' ), (array) $top_ips ),
 			'top_paths'    => array_map( array( __CLASS__, 'int_counts' ), (array) $top_paths ),
 			'recent'       => (array) $recent,
-			'suggested'    => self::suggest_rules( (array) $top_ips ),
+			'suggested'    => self::suggest_rules( $candidates ),
 		);
 	}
 

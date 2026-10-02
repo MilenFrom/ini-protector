@@ -325,6 +325,12 @@ class SecurityWP_Admin {
 						<?php if ( $hasFields ) : ?>
 							<a href="#" class="secwp-config-toggle" data-target="cfg-<?php echo esc_attr( $key ); ?>"<?php echo $on ? '' : ' style="display:none;"'; ?>><?php esc_html_e( 'Configure ▾', 'ini-protector' ); ?></a>
 						<?php endif; ?>
+						<?php if ( 'prevent_info_disclosure' === $key && $on && ! SecurityWP_Info_Disclosure::is_apache() ) : ?>
+							<details class="secwp-nginx-snippet">
+								<summary><?php esc_html_e( 'Not on Apache: add these rules to your server config', 'ini-protector' ); ?></summary>
+								<pre class="secwp-pre"><?php echo esc_html( SecurityWP_Info_Disclosure::nginx_snippet() ); ?></pre>
+							</details>
+						<?php endif; ?>
 						<?php if ( 'traffic_log' === $key && 0 === SecurityWP_Traffic_Log::retention_days() ) : ?>
 							<span class="secwp-retention-warning">
 								<?php esc_html_e( 'History set to "Unlimited". The database may become large.', 'ini-protector' ); ?>
@@ -412,6 +418,14 @@ class SecurityWP_Admin {
 			case 'password':
 				printf( '<label class="secwp-field-label" for="%s">%s</label>', esc_attr( $id ), esc_html( $label ) );
 				printf( '<input type="password" id="%s" name="%s" value="" placeholder="%s" class="secwp-input" autocomplete="new-password" />', esc_attr( $id ), esc_attr( $name ), esc_attr__( '••••• (unchanged)', 'ini-protector' ) );
+				// Leaving the box blank keeps the stored value, so removing it needs its own control.
+				if ( '' !== (string) $value ) {
+					printf(
+						'<label class="secwp-checkbox"><input type="checkbox" name="%s" value="1" /> %s</label>',
+						esc_attr( 'cfg[__clear][' . $fkey . ']' ),
+						esc_html__( 'Remove the saved value', 'ini-protector' )
+					);
+				}
 				break;
 			case 'roles':
 				printf( '<span class="secwp-field-label">%s</span>', esc_html( $label ) );

@@ -24,7 +24,8 @@ DIST_IGNORE="${PLUGIN_DIR}/.distignore"
 OUTPUT_DIR="${1:-${PLUGIN_DIR}/dist}"
 
 # --- Read version from the plugin header -------------------------------------
-VERSION="$(grep -iE '^\s*\*\s*Version:' "${MAIN_FILE}" | head -1 | sed -E 's/.*Version:\s*//I' | tr -d '\r' | xargs)"
+# POSIX classes only: BSD/macOS sed has no \s and no case-insensitive (I) flag.
+VERSION="$(grep -iE '^[[:space:]]*\*[[:space:]]*Version:' "${MAIN_FILE}" | head -1 | sed -E 's/.*[Vv][Ee][Rr][Ss][Ii][Oo][Nn]:[[:space:]]*//' | tr -d '\r' | xargs)"
 if [[ -z "${VERSION}" ]]; then
 	echo "ERROR: could not read Version from ${MAIN_FILE}" >&2
 	exit 1
@@ -56,11 +57,11 @@ fi
 if [[ -n "$(git -C "${PLUGIN_DIR}" status --porcelain --untracked-files=no)" ]]; then
 	echo "WARNING: tracked files have uncommitted changes; the zip contains the working-tree versions." >&2
 fi
-# Two passes: rsync does not apply exclude rules to paths named in --files-from, so
-# copy the tracked files first, then apply .distignore on the way into the package.
+# Two passes: copy the tracked files first (tar reads Git's NUL-separated list on GNU
+# and BSD alike), then apply .distignore on the way into the package.
 TRACKED="${STAGING}/tracked"
 mkdir -p "${TRACKED}"
-git -C "${PLUGIN_DIR}" ls-files -z | rsync -a --from0 --files-from=- "${PLUGIN_DIR}/" "${TRACKED}/"
+git -C "${PLUGIN_DIR}" ls-files -z | ( cd "${PLUGIN_DIR}" && tar --null -T - -cf - ) | ( cd "${TRACKED}" && tar -xf - )
 rsync -a "${RSYNC_EXCLUDES[@]+"${RSYNC_EXCLUDES[@]}"}" "${TRACKED}/" "${STAGING}/${SLUG}/"
 
 # --- Build the zip -----------------------------------------------------------
