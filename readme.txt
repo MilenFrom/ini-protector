@@ -100,13 +100,16 @@ is an independent toggle, grouped into three areas:
 
       define( 'SECWP_TRUSTED_PROXIES', '173.245.48.0/20, 2400:cb00::/32' );
 
-  Forwarded headers (X-Forwarded-For, CF-Connecting-IP) are then read only when
-  the connection actually comes from one of those addresses — so a visitor who
+  X-Forwarded-For is then read only when the connection actually comes from
+  one of those addresses, from the trusted end — so a visitor who
   reaches your origin directly cannot claim to be someone else, evade an IP
   block, or get an innocent IP blocked. Without this, client IPs come from the
   socket peer, which cannot be forged. Security → Scan reports which mode you
   are in. The older SECWP_TRUST_PROXY constant still works but cannot check who
-  sent the header; replace it when you can.
+  sent the header; replace it when you can. CF-Connecting-IP is read only if
+  you also define( 'SECWP_TRUST_CF_CONNECTING_IP', true ) — do that only when
+  every declared proxy is Cloudflare, since other proxies pass it through as
+  the visitor sent it.
 
 == External services ==
 

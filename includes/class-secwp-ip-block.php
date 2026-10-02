@@ -110,7 +110,7 @@ class SecurityWP_IP_Block {
 
 	/** Is the IP on the list AND not expired? */
 	public static function is_blocked( string $ip ): bool {
-		$entry = self::all()[ $ip ] ?? null;
+		$entry = self::all()[ SecurityWP_Input::normalize_ip( $ip ) ] ?? null;
 		if ( null === $entry ) {
 			return false;
 		}
@@ -129,8 +129,10 @@ class SecurityWP_IP_Block {
 	 * @return true|WP_Error
 	 */
 	public static function block( string $ip, string $reason = '', int $expires = 0, string $source = self::SOURCE_MANUAL ) {
-		$ip = trim( $ip );
-		if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+		// Stored under the canonical spelling, the same one current_ip() produces, so a block
+		// typed as '2001:DB8::1' or '::ffff:192.0.2.1' still matches the visitor.
+		$ip = SecurityWP_Input::normalize_ip( $ip );
+		if ( '' === $ip ) {
 			return new WP_Error( 'secwp_bad_ip', __( 'That is not a valid IP address.', 'ini-protector' ) );
 		}
 		if ( $ip === self::current_ip() ) {
@@ -176,12 +178,19 @@ class SecurityWP_IP_Block {
 	public static function unblock( string $ip ): bool {
 		$ip   = trim( $ip );
 		$list = self::all();
-		if ( isset( $list[ $ip ] ) ) {
-			unset( $list[ $ip ] );
-			update_option( self::OPTION, $list, false );
-			return true;
+		// The exact key too, so an entry saved in another spelling by an older version can go.
+		$keys = array_unique( array_filter( array( $ip, SecurityWP_Input::normalize_ip( $ip ) ) ) );
+		$hit  = false;
+		foreach ( $keys as $key ) {
+			if ( isset( $list[ $key ] ) ) {
+				unset( $list[ $key ] );
+				$hit = true;
+			}
 		}
-		return false;
+		if ( $hit ) {
+			update_option( self::OPTION, $list, false );
+		}
+		return $hit;
 	}
 
 	/**

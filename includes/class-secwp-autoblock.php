@@ -297,6 +297,20 @@ class SecurityWP_Autoblock {
 		if ( $ip === SecurityWP_IP_Block::current_ip() && '' !== $ip ) {
 			return true;
 		}
+		// Private, loopback and reserved addresses are never a visitor's own: with no proxy
+		// declared they are the proxy or load balancer every request arrives through, and
+		// blocking one blocks everyone behind it, admins included.
+		if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+			return true;
+		}
+		// Same for a declared proxy (a public CDN edge, say) if it ever shows up as the client.
+		if ( class_exists( 'SecurityWP_Traffic_Log' ) ) {
+			foreach ( SecurityWP_Traffic_Log::trusted_proxies() as $proxy ) {
+				if ( self::ip_matches( $ip, (string) $proxy ) ) {
+					return true;
+				}
+			}
+		}
 		// Admin-configured allowlist (single IPs + CIDR ranges).
 		foreach ( self::allowlist() as $entry ) {
 			if ( self::ip_matches( $ip, $entry ) ) {
@@ -341,11 +355,12 @@ class SecurityWP_Autoblock {
 	/** Does $ip match a single-IP or CIDR allowlist entry? IPv4 + IPv6. */
 	public static function ip_matches( string $ip, string $entry ): bool {
 		$entry = trim( $entry );
-		if ( ! self::valid_allowlist_entry( $entry ) || ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+		$ip    = SecurityWP_Input::normalize_ip( $ip );
+		if ( ! self::valid_allowlist_entry( $entry ) || '' === $ip ) {
 			return false;
 		}
 		if ( false === strpos( $entry, '/' ) ) {
-			return $ip === $entry;
+			return $ip === SecurityWP_Input::normalize_ip( $entry );
 		}
 		list( $subnet, $bits ) = array_pad( explode( '/', $entry, 2 ), 2, '' );
 		$bits = (int) $bits;

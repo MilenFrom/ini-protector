@@ -364,17 +364,25 @@ class SecurityWP_Traffic_Log {
 			if ( ! self::is_trusted_proxy( $peer, $trusted ) ) {
 				return ''; // Direct connection, or an undeclared proxy: headers mean nothing.
 			}
-			foreach ( self::header_ips( 'HTTP_CF_CONNECTING_IP' ) as $candidate ) {
-				if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
-					return sanitize_text_field( $candidate ); // Single-valued and written by the edge.
+			// CF-Connecting-IP is only meaningful when Cloudflare is the proxy that set it. Any
+			// other declared proxy (a local nginx, a load balancer) usually passes it through
+			// untouched, so trusting it there lets a client name any address. Opt in only when
+			// Cloudflare is the declared proxy; X-Forwarded-For below covers Cloudflare anyway.
+			if ( defined( 'SECWP_TRUST_CF_CONNECTING_IP' ) && SECWP_TRUST_CF_CONNECTING_IP ) {
+				foreach ( self::header_ips( 'HTTP_CF_CONNECTING_IP' ) as $candidate ) {
+					$candidate = SecurityWP_Input::normalize_ip( $candidate );
+					if ( '' !== $candidate ) {
+						return $candidate; // Single-valued and written by the edge.
+					}
 				}
 			}
 			foreach ( array_reverse( self::header_ips( 'HTTP_X_FORWARDED_FOR' ) ) as $candidate ) {
-				if ( ! filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+				$candidate = SecurityWP_Input::normalize_ip( $candidate );
+				if ( '' === $candidate ) {
 					return ''; // Garbage in the chain: stop rather than guess past it.
 				}
 				if ( ! self::is_trusted_proxy( $candidate, $trusted ) ) {
-					return sanitize_text_field( $candidate );
+					return $candidate;
 				}
 			}
 			return '';
@@ -387,7 +395,7 @@ class SecurityWP_Traffic_Log {
 			foreach ( array( 'HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR' ) as $key ) {
 				foreach ( self::header_ips( $key ) as $candidate ) {
 					if ( filter_var( $candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
-						return sanitize_text_field( $candidate );
+						return SecurityWP_Input::normalize_ip( $candidate );
 					}
 					break; // Left-most only, as before.
 				}

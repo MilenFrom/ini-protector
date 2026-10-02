@@ -45,7 +45,23 @@ if [[ -f "${DIST_IGNORE}" ]]; then
 fi
 
 mkdir -p "${STAGING}/${SLUG}"
-rsync -a "${RSYNC_EXCLUDES[@]}" "${PLUGIN_DIR}/" "${STAGING}/${SLUG}/"
+
+# Ship only files Git tracks. Copying the working tree would also pick up anything
+# untracked or ignored that happens to sit in the checkout (.env, keys, SQL dumps,
+# logs), and .distignore only lists dev files, not every possible local secret.
+if ! git -C "${PLUGIN_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	echo "ERROR: ${PLUGIN_DIR} is not a Git checkout; refusing to package untracked files." >&2
+	exit 1
+fi
+if [[ -n "$(git -C "${PLUGIN_DIR}" status --porcelain --untracked-files=no)" ]]; then
+	echo "WARNING: tracked files have uncommitted changes; the zip contains the working-tree versions." >&2
+fi
+# Two passes: rsync does not apply exclude rules to paths named in --files-from, so
+# copy the tracked files first, then apply .distignore on the way into the package.
+TRACKED="${STAGING}/tracked"
+mkdir -p "${TRACKED}"
+git -C "${PLUGIN_DIR}" ls-files -z | rsync -a --from0 --files-from=- "${PLUGIN_DIR}/" "${TRACKED}/"
+rsync -a "${RSYNC_EXCLUDES[@]+"${RSYNC_EXCLUDES[@]}"}" "${TRACKED}/" "${STAGING}/${SLUG}/"
 
 # --- Build the zip -----------------------------------------------------------
 mkdir -p "${OUTPUT_DIR}"

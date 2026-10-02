@@ -131,6 +131,14 @@ inipr_assert( true === SecurityWP_IP_Block::block( '203.0.113.250', 'test' ), 'n
 inipr_assert( array( '203.0.113.250' ) === array_keys( SecurityWP_IP_Block::all() ), 'expired entries pruned on write' );
 update_option( SecurityWP_IP_Block::OPTION, $saved_blocks, false );
 
+// One canonical spelling per address, so blocks and allowlist entries match what the server reports.
+inipr_assert( '2001:db8::1' === SecurityWP_Input::normalize_ip( '2001:DB8:0::1' ), 'IPv6 normalized to canonical form' );
+inipr_assert( '192.0.2.1' === SecurityWP_Input::normalize_ip( '::ffff:192.0.2.1' ), 'IPv4-mapped address unwrapped' );
+inipr_assert( SecurityWP_Autoblock::ip_matches( '::ffff:203.0.113.5', '203.0.113.0/24' ), 'IPv4-mapped address matches IPv4 CIDR' );
+foreach ( array( '10.0.0.5', '192.168.1.1', '127.0.0.1', 'fd00::1' ) as $internal ) {
+	inipr_assert( SecurityWP_Autoblock::is_exempt( $internal ), 'internal address never auto-blocked: ' . $internal );
+}
+
 // The app-password 2FA skip belongs to the user who presented it, not the whole request
 // (one XML-RPC system.multicall can authenticate several accounts).
 SecurityWP_2FA::flag_app_password( get_userdata( 1 ) );

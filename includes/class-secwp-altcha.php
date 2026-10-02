@@ -28,6 +28,9 @@ class SecurityWP_Altcha {
 		add_action( 'register_form', array( $this, 'render' ) );       // registration
 		add_action( 'lostpassword_form', array( $this, 'render' ) );   // lost password
 		add_action( 'login_enqueue_scripts', array( $this, 'enqueue' ) );
+		// Front-end wp_login_form() posts the same 'log' field to wp-login.php and is verified
+		// by verify_login(), so it needs the widget too or every such login fails.
+		add_filter( 'login_form_middle', array( $this, 'render_in_login_form' ), 10, 1 );
 
 		// Verify on submit. authenticate runs for login; the others have dedicated hooks.
 		add_filter( 'authenticate', array( $this, 'verify_login' ), 25, 1 );
@@ -153,10 +156,20 @@ class SecurityWP_Altcha {
 	}
 
 	public function render(): void {
+		echo $this->widget_html(); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped in widget_html().
+	}
+
+	/** wp_login_form() (front end): append the widget and load its script in the footer. */
+	public function render_in_login_form( $html ) {
+		$this->enqueue();
+		return (string) $html . $this->widget_html();
+	}
+
+	private function widget_html(): string {
 		$c = $this->make_challenge();
 		// The widget POSTs the solved payload under our field name. challengejson is the
 		// self-contained challenge so no callback URL is needed.
-		printf(
+		return sprintf(
 			'<div class="secwp-altcha"><altcha-widget name="%s" challengejson="%s"></altcha-widget></div>',
 			esc_attr( self::FIELD ),
 			esc_attr( wp_json_encode( $c ) )
