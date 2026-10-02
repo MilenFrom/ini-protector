@@ -477,7 +477,7 @@ class SecurityWP_Integrity_Admin {
 		$path = defined( 'ABSPATH' ) ? untrailingslashit( ABSPATH ) : '';
 		printf(
 			'<pre class="secwp-pre">%s</pre>',
-			esc_html( sprintf( '17 * * * * cd %s && wp secwp integrity scan --only-changes', $path ) )
+			esc_html( sprintf( '17 * * * * cd %s && wp inipr integrity scan --only-changes', $path ) )
 		);
 		echo '<p class="secwp-seen">' . esc_html__( 'The command exits with status 1 when changes are found and 0 when clean, so a monitoring system can act on it directly. Add --format=json for machine-readable output.', 'ini-protector' ) . '</p>';
 

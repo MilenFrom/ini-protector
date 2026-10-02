@@ -76,8 +76,69 @@ class SecurityWP_Utilities_Admin {
 			$msg = SecurityWP_Traffic_Log::clear() ? 'traffic_cleared' : 'traffic_clear_failed';
 		}
 
-		wp_safe_redirect( add_query_arg( array( 'page' => self::SLUG, 'secwp_msg' => $msg ), admin_url( 'admin.php' ) ) );
+		$args = array();
+		if ( 'settings_export' === $do ) {
+			$this->send_export( ! empty( $_POST['include_secrets'] ) ); // Exits.
+		}
+		if ( 'settings_preview' === $do ) {
+			$msg = $this->receive_upload();
+		}
+		if ( 'settings_apply' === $do ) {
+			$parsed = SecurityWP_Settings_Transfer::stashed();
+			SecurityWP_Settings_Transfer::forget();
+			if ( $parsed ) {
+				$args['secwp_count'] = count( SecurityWP_Settings_Transfer::apply( $parsed, 'admin' ) );
+				$msg                 = 'settings_imported';
+			} else {
+				$msg = 'settings_expired';
+			}
+		}
+		if ( 'settings_cancel' === $do ) {
+			SecurityWP_Settings_Transfer::forget();
+			$msg = 'settings_cancelled';
+		}
+		if ( 'settings_undo' === $do ) {
+			$msg = SecurityWP_Settings_Transfer::undo( 'admin' ) ? 'settings_undone' : 'settings_no_undo';
+		}
+
+		$args = array_merge( array( 'page' => self::SLUG, 'secwp_msg' => $msg ), $args );
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) . ( 0 === strpos( $do, 'settings_' ) ? '#secwp-settings-transfer' : '' ) );
 		exit;
+	}
+
+	/** Stream the settings file as a download. */
+	private function send_export( bool $include_secrets ): void {
+		do_action(
+			'secwp_platform_event',
+			'settings_exported',
+			$include_secrets ? 'Settings exported, including secrets' : 'Settings exported (secrets left out)',
+			array( 'user_id' => get_current_user_id(), 'secrets' => $include_secrets )
+		);
+		nocache_headers();
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="' . SecurityWP_Settings_Transfer::filename() . '"' );
+		header( 'X-Content-Type-Options: nosniff' );
+		echo SecurityWP_Settings_Transfer::export_json( $include_secrets ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A JSON download, not HTML.
+		exit;
+	}
+
+	/** Read and check an uploaded settings file; park it for the preview. Returns a message key. */
+	private function receive_upload(): string {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Only tmp_name/size/error are read; the contents are validated by parse().
+		$file = isset( $_FILES['settings_file'] ) && is_array( $_FILES['settings_file'] ) ? $_FILES['settings_file'] : array();
+		if ( empty( $file['tmp_name'] ) || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+			return 'settings_no_file';
+		}
+		if ( (int) $file['size'] > SecurityWP_Settings_Transfer::MAX_BYTES ) {
+			return 'settings_bad_file';
+		}
+		$json   = (string) file_get_contents( $file['tmp_name'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- PHP's own upload temp file.
+		$parsed = SecurityWP_Settings_Transfer::parse( $json );
+		if ( is_wp_error( $parsed ) ) {
+			return 'newer_schema' === $parsed->get_error_code() ? 'settings_newer' : 'settings_bad_file';
+		}
+		SecurityWP_Settings_Transfer::stash( $parsed );
+		return 'settings_preview';
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -93,12 +154,148 @@ class SecurityWP_Utilities_Admin {
 		echo '<h1 class="secwp-h1"><span class="dashicons dashicons-admin-tools"></span> ' . esc_html__( 'Utilities', 'ini-protector' ) . '</h1>';
 		printf(
 			'<p class="secwp-muted">%s</p>',
-			esc_html__( 'Maintenance actions for asset caching and traffic history.', 'ini-protector' )
+			esc_html__( 'Maintenance actions for asset caching, traffic history and settings.', 'ini-protector' )
 		);
 		$this->page_notice();
 		$this->render_asset_salt();
 		$this->render_traffic_cleanup();
+		$this->render_settings_transfer();
 		echo '</div>';
+	}
+
+	private function render_settings_transfer(): void {
+		$pending = SecurityWP_Settings_Transfer::stashed();
+		$action  = esc_url( admin_url( 'admin-post.php' ) );
+		echo '<div class="secwp-card secwp-card-wide" id="secwp-settings-transfer">';
+		echo '<div class="secwp-card-head"><span class="dashicons dashicons-migrate"></span><h2>' . esc_html__( 'Export / import settings', 'ini-protector' ) . '</h2></div>';
+		echo '<div class="secwp-card-body">';
+
+		if ( $pending ) {
+			$this->render_import_preview( $pending, $action );
+			echo '</div></div>';
+			return;
+		}
+
+		printf( '<p class="secwp-lead">%s</p>', esc_html__( 'Copy this site’s INI Protector configuration to another site, or keep it as a backup.', 'ini-protector' ) );
+		printf( '<p class="secwp-why">%s</p>', esc_html__( 'The file holds which protections are on and how each is configured. It never holds traffic history, the file-integrity baseline, scan results, IP blocks, or anyone’s two-factor secrets — those belong to one site.', 'ini-protector' ) );
+
+		// Export.
+		echo '<h3 class="secwp-subhead">' . esc_html__( 'Export', 'ini-protector' ) . '</h3>';
+		printf( '<form method="post" action="%s" class="secwp-actions">', $action ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+		echo '<input type="hidden" name="action" value="secwp_utilities_action" /><input type="hidden" name="do" value="settings_export" />';
+		wp_nonce_field( 'secwp_utilities_action' );
+		printf(
+			'<p><label><input type="checkbox" name="include_secrets" value="1" /> %s</label><br /><span class="secwp-hint-inline">%s</span></p>',
+			esc_html__( 'Include secrets (site password, webhook secret)', 'ini-protector' ),
+			esc_html__( 'They are stored in the file in plain text. Leave this off unless the file goes straight to another site you control.', 'ini-protector' )
+		);
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Download settings file', 'ini-protector' ) );
+		echo '</form>';
+
+		// Import.
+		echo '<h3 class="secwp-subhead">' . esc_html__( 'Import', 'ini-protector' ) . '</h3>';
+		printf( '<p class="secwp-why">%s</p>', esc_html__( 'You will see every change before anything is applied, and the current settings are kept so the import can be undone. Settings the file does not contain are left as they are; secrets are never cleared.', 'ini-protector' ) );
+		printf( '<form method="post" action="%s" enctype="multipart/form-data" class="secwp-actions">', $action ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+		echo '<input type="hidden" name="action" value="secwp_utilities_action" /><input type="hidden" name="do" value="settings_preview" />';
+		wp_nonce_field( 'secwp_utilities_action' );
+		echo '<p><input type="file" name="settings_file" accept=".json,application/json" required /></p>';
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Preview import', 'ini-protector' ) );
+		echo '</form>';
+
+		$undo = SecurityWP_Settings_Transfer::undo_point();
+		if ( $undo ) {
+			echo '<h3 class="secwp-subhead">' . esc_html__( 'Undo', 'ini-protector' ) . '</h3>';
+			$user = get_userdata( (int) $undo['user'] );
+			printf(
+				'<p class="secwp-why">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: date and time, 2: user name, 3: where the import came from. */
+						__( 'Last import: %1$s by %2$s (%3$s). Undo puts every setting back as it was just before it.', 'ini-protector' ),
+						$this->local_time( (int) $undo['time'] ),
+						$user ? $user->user_login : __( 'no logged-in user', 'ini-protector' ),
+						$this->source( (string) ( $undo['via'] ?? '' ) )
+					)
+				)
+			);
+			printf( '<form method="post" action="%s" class="secwp-actions">', $action ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+			echo '<input type="hidden" name="action" value="secwp_utilities_action" /><input type="hidden" name="do" value="settings_undo" />';
+			wp_nonce_field( 'secwp_utilities_action' );
+			printf(
+				'<button type="submit" class="button" onclick="return confirm(%s);">%s</button>',
+				esc_attr( (string) wp_json_encode( __( 'Put all INI Protector settings back as they were before the last import?', 'ini-protector' ) ) ),
+				esc_html__( 'Undo last import', 'ini-protector' )
+			);
+			echo '</form>';
+		}
+
+		printf(
+			'<p class="secwp-hint">%s <code>wp inipr settings export</code> · <code>wp inipr settings import &lt;file&gt;</code> · <code>wp inipr settings undo</code></p>',
+			esc_html__( 'From the command line:', 'ini-protector' )
+		);
+		echo '</div></div>';
+	}
+
+	private function render_import_preview( array $parsed, string $action ): void {
+		$rows = SecurityWP_Settings_Transfer::diff( $parsed );
+		printf( '<p class="secwp-lead">%s</p>', esc_html__( 'Review the import. Nothing has changed yet.', 'ini-protector' ) );
+
+		echo '<table class="secwp-kv"><tbody>';
+		printf( '<tr><th>%s</th><td>%s</td></tr>', esc_html__( 'Exported from', 'ini-protector' ), esc_html( '' !== $parsed['site'] ? $parsed['site'] : __( 'unknown', 'ini-protector' ) ) );
+		printf( '<tr><th>%s</th><td>%s</td></tr>', esc_html__( 'Plugin version', 'ini-protector' ), esc_html( '' !== $parsed['plugin_version'] ? $parsed['plugin_version'] : __( 'unknown', 'ini-protector' ) ) );
+		printf( '<tr><th>%s</th><td>%s</td></tr>', esc_html__( 'Exported at', 'ini-protector' ), esc_html( '' !== $parsed['exported_at'] ? $parsed['exported_at'] : __( 'unknown', 'ini-protector' ) ) );
+		printf(
+			'<tr><th>%s</th><td>%s</td></tr>',
+			esc_html__( 'Secrets', 'ini-protector' ),
+			esc_html( $parsed['secrets_included'] ? __( 'Included — this site’s secrets will be replaced where the file has one.', 'ini-protector' ) : __( 'Not included — this site keeps its own.', 'ini-protector' ) )
+		);
+		echo '</tbody></table>';
+
+		if ( $parsed['ignored'] ) {
+			printf(
+				'<div class="secwp-warn-box"><span class="dashicons dashicons-warning"></span> %s <code>%s</code></div>',
+				esc_html__( 'Not known to this version, so they will be skipped:', 'ini-protector' ),
+				esc_html( implode( ', ', $parsed['ignored'] ) )
+			);
+		}
+
+		if ( ! $rows ) {
+			printf( '<p class="secwp-why">%s</p>', esc_html__( 'This file matches the current settings — there is nothing to change.', 'ini-protector' ) );
+		} else {
+			if ( array_filter( wp_list_pluck( $rows, 'sensitive' ) ) ) {
+				printf(
+					'<div class="secwp-cost"><span class="dashicons dashicons-info-outline"></span> <strong>%s</strong> %s</div>',
+					esc_html__( 'Check the highlighted rows.', 'ini-protector' ),
+					esc_html__( 'They change how people sign in or who is let in or blocked. If the login address changes, the new one is shown after the import — note it before you sign out.', 'ini-protector' )
+				);
+			}
+			echo '<table class="widefat striped secwp-import-diff"><thead><tr>';
+			printf( '<th>%s</th><th>%s</th><th>%s</th><th>%s</th>', esc_html__( 'Protection', 'ini-protector' ), esc_html__( 'Setting', 'ini-protector' ), esc_html__( 'Now', 'ini-protector' ), esc_html__( 'After import', 'ini-protector' ) );
+			echo '</tr></thead><tbody>';
+			foreach ( $rows as $row ) {
+				printf(
+					'<tr%s><td>%s</td><td>%s</td><td>%s</td><td><strong>%s</strong></td></tr>',
+					$row['sensitive'] ? ' class="secwp-sensitive"' : '',
+					esc_html( $row['label'] ),
+					esc_html( '' !== $row['field'] ? $row['field'] : __( 'Enabled', 'ini-protector' ) ),
+					esc_html( $row['from'] ),
+					esc_html( $row['to'] )
+				);
+			}
+			echo '</tbody></table>';
+		}
+
+		printf( '<form method="post" action="%s" class="secwp-actions secwp-import-actions">', $action ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by the caller.
+		echo '<input type="hidden" name="action" value="secwp_utilities_action" />';
+		wp_nonce_field( 'secwp_utilities_action' );
+		if ( $rows ) {
+			printf(
+				'<button type="submit" name="do" value="settings_apply" class="button button-primary">%s</button> ',
+				esc_html( sprintf( /* translators: %d: number of settings. */ _n( 'Apply %d change', 'Apply %d changes', count( $rows ), 'ini-protector' ), count( $rows ) ) )
+			);
+		}
+		printf( '<button type="submit" name="do" value="settings_cancel" class="button">%s</button>', esc_html__( 'Cancel', 'ini-protector' ) );
+		echo '</form>';
 	}
 
 	private function render_traffic_cleanup(): void {
@@ -196,7 +393,7 @@ class SecurityWP_Utilities_Admin {
 		echo '</form>';
 
 		printf(
-			'<p class="secwp-hint">%s <code>wp secwp asset-salt rotate</code> — %s</p>',
+			'<p class="secwp-hint">%s <code>wp inipr asset-salt rotate</code> — %s</p>',
 			esc_html__( 'From a deploy script:', 'ini-protector' ),
 			esc_html__( 'run it after the step that syncs changed files. If the site is behind a page cache, purge that too: cached HTML still contains the old asset URLs.', 'ini-protector' )
 		);
@@ -294,7 +491,31 @@ class SecurityWP_Utilities_Admin {
 			'traffic_cleared' => array( 'notice-success', __( 'Traffic history cleared. Existing IP blocks and settings were kept.', 'ini-protector' ) ),
 			'traffic_clear_failed' => array( 'notice-error', __( 'Traffic history could not be cleared. Please try again or check database permissions.', 'ini-protector' ) ),
 			'invalid'          => array( 'notice-error', __( 'Unknown action.', 'ini-protector' ) ),
+			'settings_preview'   => array( 'notice-info', __( 'Settings file read. Review the changes below, then apply or cancel.', 'ini-protector' ) ),
+			'settings_no_file'   => array( 'notice-error', __( 'Choose a settings file to import.', 'ini-protector' ) ),
+			'settings_bad_file'  => array( 'notice-error', __( 'That file is not an INI Protector settings export.', 'ini-protector' ) ),
+			'settings_newer'     => array( 'notice-error', __( 'That file was exported by a newer version of INI Protector. Update this site first, then import it.', 'ini-protector' ) ),
+			'settings_expired'   => array( 'notice-warning', __( 'The import preview expired before it was applied. Nothing was changed; upload the file again.', 'ini-protector' ) ),
+			'settings_cancelled' => array( 'notice-info', __( 'Import cancelled. Nothing was changed.', 'ini-protector' ) ),
+			'settings_undone'    => array( 'notice-success', __( 'Settings restored to how they were before the last import.', 'ini-protector' ) ),
+			'settings_no_undo'   => array( 'notice-warning', __( 'There is no import to undo.', 'ini-protector' ) ),
 		);
+		if ( 'settings_imported' === $msg ) {
+			$count = isset( $_GET['secwp_count'] ) ? absint( $_GET['secwp_count'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$map[ $msg ] = array(
+				'notice-success',
+				/* translators: %d: number of settings changed. */
+				sprintf( _n( 'Settings imported: %d change applied. You can undo it below.', 'Settings imported: %d changes applied. You can undo it below.', $count, 'ini-protector' ), $count ),
+			);
+		}
+		if ( in_array( $msg, array( 'settings_imported', 'settings_undone' ), true ) && '' !== SecurityWP_Settings_Transfer::login_notice() ) {
+			printf(
+				'<div class="notice notice-warning"><p><strong>%s</strong> <a href="%s"><code>%s</code></a></p></div>',
+				esc_html__( 'Your login address is now:', 'ini-protector' ),
+				esc_url( SecurityWP_Settings_Transfer::login_notice() ),
+				esc_html( SecurityWP_Settings_Transfer::login_notice() )
+			);
+		}
 		if ( ! isset( $map[ $msg ] ) ) {
 			return;
 		}

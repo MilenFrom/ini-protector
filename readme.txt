@@ -25,11 +25,11 @@ is an independent toggle, grouped into three areas:
   Media is never hashed, but uploads, caches and backup folders are still checked
   for executable files — a .php among your images has no innocent explanation and
   is reported as critical. Runs from WP-Cron or from system cron via
-  `wp secwp integrity scan`.
+  `wp inipr integrity scan`.
 * **Two-factor authentication (TOTP)** — a time-based one-time code from any
   standard authenticator app, required per role. The password is verified first,
   then the code, before any session cookie is issued. Recovery codes are issued
-  at setup, and `wp secwp 2fa reset <user>` restores access from the shell.
+  at setup, and `wp inipr 2fa reset <user>` restores access from the shell.
 * Disable XML-RPC, disable the theme/plugin file editor, require login for the
   REST API.
 * Limit login attempts (IP lockout), mask the login URL to a secret slug.
@@ -67,8 +67,13 @@ is an independent toggle, grouped into three areas:
 * **Rotate asset cache token** — changes the version token on every CSS and JS
   URL at once, so returning visitors re-fetch them. Use it after a deploy when
   a file has changed but the version it declares has not. Available from
-  **INI Protector → Utilities** and from `wp secwp asset-salt rotate`, which is
+  **INI Protector → Utilities** and from `wp inipr asset-salt rotate`, which is
   where it belongs in a deploy script.
+* **Export / import settings** — download which protections are on and how they
+  are configured as a JSON file, and import it on another site. Every change is
+  shown before it is applied, the previous settings are kept for one-click undo,
+  and secrets (site password, webhook secret) are left out unless you opt in.
+  Also `wp inipr settings export|import|undo`.
 
 **SEO & privacy**
 

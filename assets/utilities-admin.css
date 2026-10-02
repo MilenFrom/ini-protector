@@ -25,3 +25,8 @@
 .secwp-history summary { cursor:pointer; font-size:13px; color:#2271b1; }
 .secwp-history table { margin-top:10px; }
 .secwp-history code { font-size:12px; }
+.secwp-subhead { font-size:13px; margin:18px 0 6px; color:#1d2327; }
+.secwp-import-diff { margin:0 0 14px; }
+.secwp-import-diff tr.secwp-sensitive td { background:#fcf9e8; }
+.secwp-import-diff tr.secwp-sensitive td:first-child { box-shadow:inset 4px 0 0 #dba617; }
+.secwp-import-actions .button { margin-right:6px; }

@@ -69,6 +69,7 @@ require_once SECWP_DIR . 'includes/class-secwp-vuln-admin.php';
 require_once SECWP_DIR . 'includes/class-secwp-integrity.php';
 require_once SECWP_DIR . 'includes/class-secwp-integrity-alert.php';
 require_once SECWP_DIR . 'includes/class-secwp-integrity-admin.php';
+require_once SECWP_DIR . 'includes/class-secwp-settings-transfer.php';
 require_once SECWP_DIR . 'includes/class-secwp-utilities-admin.php';
 require_once SECWP_DIR . 'includes/class-secwp-qr.php';
 require_once SECWP_DIR . 'includes/class-secwp-totp.php';

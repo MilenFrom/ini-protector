@@ -2,14 +2,14 @@
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: INI Protector 1.10.0\n"
+"Project-Id-Version: INI Protector 1.10.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ini-protector\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-02T18:00:00+00:00\n"
+"POT-Creation-Date: 2026-10-02T18:49:48+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: ini-protector\n"
@@ -112,6 +112,9 @@ msgid "Required — not set up"
 msgstr ""
 
 #: includes/class-secwp-2fa.php:595
+#: includes/class-secwp-settings-transfer.php:145
+#: includes/class-secwp-settings-transfer.php:146
+#: includes/class-secwp-settings-transfer.php:296
 msgid "Off"
 msgstr ""
 
@@ -135,6 +138,9 @@ msgid "Not set up. Only the account holder can turn two-factor authentication on
 msgstr ""
 
 #: includes/class-secwp-2fa.php:653
+#: includes/class-secwp-settings-transfer.php:145
+#: includes/class-secwp-settings-transfer.php:146
+#: includes/class-secwp-settings-transfer.php:296
 msgid "On"
 msgstr ""
 
@@ -586,7 +592,7 @@ msgid "Recent change history"
 msgstr ""
 
 #: includes/class-secwp-integrity-admin.php:420
-#: includes/class-secwp-utilities-admin.php:218
+#: includes/class-secwp-utilities-admin.php:415
 msgid "When"
 msgstr ""
 
@@ -663,7 +669,7 @@ msgid "Turn on file integrity monitoring first."
 msgstr ""
 
 #: includes/class-secwp-integrity-admin.php:528
-#: includes/class-secwp-utilities-admin.php:296
+#: includes/class-secwp-utilities-admin.php:493
 msgid "Unknown action."
 msgstr ""
 
@@ -1010,6 +1016,33 @@ msgstr ""
 msgid "The downloaded package does not match the selected INI Protector release."
 msgstr ""
 
+#: includes/class-secwp-settings-transfer.php:88
+msgid "That file is too large to be an INI Protector settings export."
+msgstr ""
+
+#: includes/class-secwp-settings-transfer.php:92
+#: includes/class-secwp-utilities-admin.php:496
+msgid "That file is not an INI Protector settings export."
+msgstr ""
+
+#: includes/class-secwp-settings-transfer.php:95
+#: includes/class-secwp-utilities-admin.php:497
+msgid "That file was exported by a newer version of INI Protector. Update this site first, then import it."
+msgstr ""
+
+#: includes/class-secwp-settings-transfer.php:167
+msgid "(secret)"
+msgstr ""
+
+#: includes/class-secwp-settings-transfer.php:168
+msgid "(new secret)"
+msgstr ""
+
+#: includes/class-secwp-settings-transfer.php:303
+#: includes/class-secwp-traffic-admin.php:659
+msgid "(empty)"
+msgstr ""
+
 #: includes/class-secwp-traffic-admin.php:46
 msgid "Last hour"
 msgstr ""
@@ -1128,6 +1161,7 @@ msgid "All INI Protector settings"
 msgstr ""
 
 #: includes/class-secwp-traffic-admin.php:343
+#: includes/class-secwp-utilities-admin.php:297
 msgid "Cancel"
 msgstr ""
 
@@ -1301,10 +1335,6 @@ msgstr ""
 msgid "Top paths"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:659
-msgid "(empty)"
-msgstr ""
-
 #: includes/class-secwp-traffic-admin.php:667
 msgid "Request timeline"
 msgstr ""
@@ -1350,7 +1380,7 @@ msgid "Block"
 msgstr ""
 
 #: includes/class-secwp-traffic-admin.php:797
-#: includes/class-secwp-utilities-admin.php:295
+#: includes/class-secwp-utilities-admin.php:492
 msgid "Traffic history could not be cleared. Please try again or check database permissions."
 msgstr ""
 
@@ -1408,155 +1438,329 @@ msgstr ""
 
 #: includes/class-secwp-utilities-admin.php:47
 #: includes/class-secwp-utilities-admin.php:48
-#: includes/class-secwp-utilities-admin.php:93
+#: includes/class-secwp-utilities-admin.php:154
 msgid "Utilities"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:96
-msgid "Maintenance actions for asset caching and traffic history."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:107
-msgid "Clean traffic table contents"
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:109
-msgid "Permanently delete all recorded traffic history to free database space."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:110
-msgid "This cannot be undone. Traffic reports and new automatic-block suggestions will start from fresh history. Existing IP blocks and settings are kept. New requests will continue to be recorded while the traffic monitor is enabled."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:115
-msgid "Permanently delete all traffic history? This cannot be undone. Existing IP blocks and settings will be kept."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:115
-msgid "Clean traffic table"
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:127
-#: includes/class-secwp-utilities-admin.php:194
-msgid "Rotate asset cache token"
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:132
-msgid "Changes the version token on every CSS and JS URL. Use after a deploy if visitors are still seeing old styles or scripts."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:137
-msgid "Why this is needed: the masked token is derived from the version an asset declares, so a plugin that hard-codes a version string keeps the same URL even after its file changes — and a browser that has been here before keeps using its cached copy."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:145
-msgid "This has a cost."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:146
-msgid "Rotating invalidates every asset URL at once, so the next visit re-downloads all CSS and JS. That is fine occasionally and wasteful as a habit — reach for it after a deploy, not on a schedule."
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:156
-msgid "“Remove version on static assets” is on, so asset URLs carry no version at all and there is no token to rotate. Rotating now will have no visible effect."
-msgstr ""
-
 #: includes/class-secwp-utilities-admin.php:157
-msgid "“Mask version on static assets” is off, so the real ?ver= is being sent and there is no token to rotate. Rotating now will have no visible effect."
+msgid "Maintenance actions for asset caching, traffic history and settings."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:163
-msgid "Head cleanup settings"
+#: includes/class-secwp-utilities-admin.php:170
+msgid "Export / import settings"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:172
-msgid "Current token"
+#: includes/class-secwp-utilities-admin.php:179
+msgid "Copy this site’s INI Protector configuration to another site, or keep it as a backup."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:174
-msgid "(identifies the salt in use — not the salt itself)"
+#: includes/class-secwp-utilities-admin.php:180
+msgid "The file holds which protections are on and how each is configured. It never holds traffic history, the file-integrity baseline, scan results, IP blocks, or anyone’s two-factor secrets — those belong to one site."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:178
-msgid "Last rotated"
+#: includes/class-secwp-utilities-admin.php:183
+msgid "Export"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:193
-msgid "Rotate the asset cache token? Every visitor will re-download all CSS and JS once."
+#: includes/class-secwp-utilities-admin.php:189
+msgid "Include secrets (site password, webhook secret)"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:200
-msgid "From a deploy script:"
+#: includes/class-secwp-utilities-admin.php:190
+msgid "They are stored in the file in plain text. Leave this off unless the file goes straight to another site you control."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:201
-msgid "run it after the step that syncs changed files. If the site is behind a page cache, purge that too: cached HTML still contains the old asset URLs."
+#: includes/class-secwp-utilities-admin.php:192
+msgid "Download settings file"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:196
+msgid "Import"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:197
+msgid "You will see every change before anything is applied, and the current settings are kept so the import can be undone. Settings the file does not contain are left as they are; secrets are never cleared."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:202
+msgid "Preview import"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:207
+msgid "Undo"
+msgstr ""
+
+#. translators: 1: date and time, 2: user name, 3: where the import came from.
+#: includes/class-secwp-utilities-admin.php:214
+#, php-format
+msgid "Last import: %1$s by %2$s (%3$s). Undo puts every setting back as it was just before it."
 msgstr ""
 
 #: includes/class-secwp-utilities-admin.php:216
-msgid "Rotation history"
+#: includes/class-secwp-utilities-admin.php:466
+msgid "no logged-in user"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:219
-msgid "By"
+#: includes/class-secwp-utilities-admin.php:226
+msgid "Put all INI Protector settings back as they were before the last import?"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:220
-msgid "From"
+#: includes/class-secwp-utilities-admin.php:227
+msgid "Undo last import"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:221
-msgid "Token"
+#: includes/class-secwp-utilities-admin.php:234
+msgid "From the command line:"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:241
+msgid "Review the import. Nothing has changed yet."
 msgstr ""
 
 #: includes/class-secwp-utilities-admin.php:244
+msgid "Exported from"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:244
+#: includes/class-secwp-utilities-admin.php:245
+#: includes/class-secwp-utilities-admin.php:246
+#: includes/class-secwp-utilities-admin.php:454
+msgid "unknown"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:245
+msgid "Plugin version"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:246
+msgid "Exported at"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:249
+msgid "Secrets"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:250
+msgid "Included — this site’s secrets will be replaced where the file has one."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:250
+msgid "Not included — this site keeps its own."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:257
+msgid "Not known to this version, so they will be skipped:"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:263
+msgid "This file matches the current settings — there is nothing to change."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:268
+msgid "Check the highlighted rows."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:269
+msgid "They change how people sign in or who is let in or blocked. If the login address changes, the new one is shown after the import — note it before you sign out."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:273
+msgid "Protection"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:273
+msgid "Setting"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:273
+msgid "Now"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:273
+msgid "After import"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:280
+msgid "Enabled"
+msgstr ""
+
+#. translators: %d: number of settings.
+#: includes/class-secwp-utilities-admin.php:294
+#, php-format
+msgid "Apply %d change"
+msgid_plural "Apply %d changes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-secwp-utilities-admin.php:304
+msgid "Clean traffic table contents"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:306
+msgid "Permanently delete all recorded traffic history to free database space."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:307
+msgid "This cannot be undone. Traffic reports and new automatic-block suggestions will start from fresh history. Existing IP blocks and settings are kept. New requests will continue to be recorded while the traffic monitor is enabled."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:312
+msgid "Permanently delete all traffic history? This cannot be undone. Existing IP blocks and settings will be kept."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:312
+msgid "Clean traffic table"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:324
+#: includes/class-secwp-utilities-admin.php:391
+msgid "Rotate asset cache token"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:329
+msgid "Changes the version token on every CSS and JS URL. Use after a deploy if visitors are still seeing old styles or scripts."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:334
+msgid "Why this is needed: the masked token is derived from the version an asset declares, so a plugin that hard-codes a version string keeps the same URL even after its file changes — and a browser that has been here before keeps using its cached copy."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:342
+msgid "This has a cost."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:343
+msgid "Rotating invalidates every asset URL at once, so the next visit re-downloads all CSS and JS. That is fine occasionally and wasteful as a habit — reach for it after a deploy, not on a schedule."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:353
+msgid "“Remove version on static assets” is on, so asset URLs carry no version at all and there is no token to rotate. Rotating now will have no visible effect."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:354
+msgid "“Mask version on static assets” is off, so the real ?ver= is being sent and there is no token to rotate. Rotating now will have no visible effect."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:360
+msgid "Head cleanup settings"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:369
+msgid "Current token"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:371
+msgid "(identifies the salt in use — not the salt itself)"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:375
+msgid "Last rotated"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:390
+msgid "Rotate the asset cache token? Every visitor will re-download all CSS and JS once."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:397
+msgid "From a deploy script:"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:398
+msgid "run it after the step that syncs changed files. If the site is behind a page cache, purge that too: cached HTML still contains the old asset URLs."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:413
+msgid "Rotation history"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:416
+msgid "By"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:417
+msgid "From"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:418
+msgid "Token"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:441
 msgid "Never — the token has not been rotated since it was first generated."
 msgstr ""
 
 #. translators: 1: date and time, 2: user name or "unknown", 3: where the rotation came from.
-#: includes/class-secwp-utilities-admin.php:248
+#: includes/class-secwp-utilities-admin.php:445
 #, php-format
 msgid "%1$s by %2$s (%3$s)"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:257
-msgid "unknown"
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:269
-msgid "no logged-in user"
-msgstr ""
-
-#: includes/class-secwp-utilities-admin.php:274
+#: includes/class-secwp-utilities-admin.php:471
 msgid "from the admin"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:275
-#: includes/class-secwp-utilities-admin.php:276
-#: includes/class-secwp-utilities-admin.php:277
+#: includes/class-secwp-utilities-admin.php:472
+#: includes/class-secwp-utilities-admin.php:473
+#: includes/class-secwp-utilities-admin.php:474
 msgid "from WP-CLI"
 msgstr ""
 
 #. translators: %s: the source label recorded with the rotation.
-#: includes/class-secwp-utilities-admin.php:281
+#: includes/class-secwp-utilities-admin.php:478
 #, php-format
 msgid "from %s"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:282
+#: includes/class-secwp-utilities-admin.php:479
 msgid "an unknown source"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:292
+#: includes/class-secwp-utilities-admin.php:489
 msgid "Asset cache token rotated. Every CSS and JS URL has changed; visitors will re-download them once."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:293
+#: includes/class-secwp-utilities-admin.php:490
 msgid "Asset cache token rotated, but version masking is off — asset URLs are unchanged for visitors until you turn “Mask version on static assets” on."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:294
+#: includes/class-secwp-utilities-admin.php:491
 msgid "Traffic history cleared. Existing IP blocks and settings were kept."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:494
+msgid "Settings file read. Review the changes below, then apply or cancel."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:495
+msgid "Choose a settings file to import."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:498
+msgid "The import preview expired before it was applied. Nothing was changed; upload the file again."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:499
+msgid "Import cancelled. Nothing was changed."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:500
+msgid "Settings restored to how they were before the last import."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:501
+msgid "There is no import to undo."
+msgstr ""
+
+#. translators: %d: number of settings changed.
+#: includes/class-secwp-utilities-admin.php:508
+#, php-format
+msgid "Settings imported: %d change applied. You can undo it below."
+msgid_plural "Settings imported: %d changes applied. You can undo it below."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-secwp-utilities-admin.php:514
+msgid "Your login address is now:"
 msgstr ""
 
 #: includes/class-secwp-vuln-admin.php:43
