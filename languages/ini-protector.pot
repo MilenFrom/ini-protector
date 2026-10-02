@@ -2,23 +2,23 @@
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: INI Protector 1.9.2\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/source\n"
+"Project-Id-Version: INI Protector 1.9.7\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/ini-protector\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-08T07:15:15+00:00\n"
+"POT-Creation-Date: 2026-10-02T14:34:22+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: ini-protector\n"
 
 #. Plugin Name of the plugin
 #: ini-protector.php
-#: includes/class-secwp-admin.php:88
-#: includes/class-secwp-admin.php:89
-#: includes/class-secwp-admin.php:247
+#: includes/class-secwp-admin.php:93
+#: includes/class-secwp-admin.php:94
+#: includes/class-secwp-admin.php:299
 #: includes/class-secwp-integrity-admin.php:152
 #: includes/class-secwp-vuln-admin.php:140
 msgid "INI Protector"
@@ -39,230 +39,268 @@ msgstr ""
 msgid "https://iniwp.com"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:143
+#: includes/class-secwp-2fa.php:155
 msgid "<strong>Error:</strong> This account uses two-factor authentication, which cannot be completed over this connection. Use an application password instead."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:199
+#: includes/class-secwp-2fa.php:212
 msgid "Too many incorrect codes. Wait a few minutes and sign in again."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:219
+#: includes/class-secwp-2fa.php:233
 msgid "That code was not correct. Codes change every 30 seconds — check your device clock if this keeps happening."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:247
-#: includes/class-secwp-2fa.php:305
-#: includes/class-secwp-2fa.php:487
+#: includes/class-secwp-2fa.php:249
+msgid "You have logged in successfully."
+msgstr ""
+
+#: includes/class-secwp-2fa.php:282
+#: includes/class-secwp-2fa.php:343
+#: includes/class-secwp-2fa.php:565
 msgid "Two-factor authentication"
 msgstr ""
 
 #. translators: %s: user login name.
-#: includes/class-secwp-2fa.php:265
+#: includes/class-secwp-2fa.php:303
 #, php-format
 msgid "Signing in as %s. Enter the current code from your authenticator app."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:271
+#: includes/class-secwp-2fa.php:309
 msgid "Your authenticator setup is no longer readable. This can happen after the site’s security salts change. Enter an unused recovery code to sign in, then reset and set up two-factor authentication again from your profile. If you have no recovery codes, contact the site administrator."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:275
+#: includes/class-secwp-2fa.php:313
 msgid "Authentication code"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:282
+#: includes/class-secwp-2fa.php:320
 msgid "Verify"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:285
+#: includes/class-secwp-2fa.php:323
 msgid "Lost your device? Enter one of your recovery codes in the same box."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:289
+#: includes/class-secwp-2fa.php:327
 msgid "← Start over"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:441
+#: includes/class-secwp-2fa.php:519
 msgid "Two-factor authentication is required for your account."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:442
+#: includes/class-secwp-2fa.php:520
 msgid "Set it up below to continue using the site."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:451
+#: includes/class-secwp-2fa.php:529
 msgid "2FA"
 msgstr ""
 
 #. translators: %d: number of unused recovery codes.
-#: includes/class-secwp-2fa.php:463
+#: includes/class-secwp-2fa.php:541
 #, php-format
 msgid "On · %d recovery code left"
 msgid_plural "On · %d recovery codes left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-secwp-2fa.php:470
+#: includes/class-secwp-2fa.php:548
 msgid "Required — not set up"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:472
+#: includes/class-secwp-2fa.php:550
 msgid "Off"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:494
+#: includes/class-secwp-2fa.php:572
 msgid "That code was not correct, so two-factor authentication was not turned on. Your key below is unchanged — just enter the next code your app shows."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:510
-#: includes/class-secwp-2fa.php:522
-#: includes/class-secwp-traffic-admin.php:440
-#: includes/class-secwp-traffic-admin.php:675
+#: includes/class-secwp-2fa.php:588
+#: includes/class-secwp-2fa.php:600
+#: includes/class-secwp-traffic-admin.php:437
+#: includes/class-secwp-traffic-admin.php:672
 msgid "Status"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:511
+#: includes/class-secwp-2fa.php:589
 msgid "Not set up. Only the account holder can turn two-factor authentication on, because it needs their authenticator app."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:523
+#: includes/class-secwp-2fa.php:601
 msgid "On"
 msgstr ""
 
 #. translators: %s: date.
-#: includes/class-secwp-2fa.php:526
+#: includes/class-secwp-2fa.php:604
 #, php-format
 msgid "since %s"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:532
+#: includes/class-secwp-2fa.php:610
 msgid "This account’s secret can no longer be read."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:533
+#: includes/class-secwp-2fa.php:611
 msgid "That happens when the site’s security salts in wp-config.php are changed. Sign in with a recovery code (or have an administrator reset 2FA from WP-CLI), then set it up again."
 msgstr ""
 
 #. translators: %d: unused recovery codes.
-#: includes/class-secwp-2fa.php:542
+#: includes/class-secwp-2fa.php:620
 #, php-format
 msgid "%d unused recovery code remaining."
 msgid_plural "%d unused recovery codes remaining."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-secwp-2fa.php:548
+#: includes/class-secwp-2fa.php:626
 msgid "Running low — generate a new set and store them somewhere other than the device holding your codes."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:553
+#: includes/class-secwp-2fa.php:631
 msgid "Recovery codes"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:555
+#: includes/class-secwp-2fa.php:633
 msgid "Generate a new set of recovery codes when I save this page"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:556
+#: includes/class-secwp-2fa.php:634
 msgid "The previous set stops working immediately."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:560
+#: includes/class-secwp-2fa.php:638
 msgid "Turn off"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:562
+#: includes/class-secwp-2fa.php:640
 msgid "Turn off two-factor authentication for this account"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:565
+#: includes/class-secwp-2fa.php:643
 msgid "This account’s role requires two-factor authentication — turning it off will send it straight back to this page to set it up again."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:581
-msgid "Two-factor setup code"
-msgstr ""
-
-#: includes/class-secwp-2fa.php:583
+#: includes/class-secwp-2fa.php:659
+#: includes/class-secwp-2fa.php:670
 msgid "Set up"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:586
+#: includes/class-secwp-2fa.php:660
+msgid "Two-factor authentication cannot be set up on this server."
+msgstr ""
+
+#: includes/class-secwp-2fa.php:661
+msgid "The authenticator secret could not be encrypted, and INI Protector will not store it unprotected. Ask your host to enable PHP’s sodium extension, then reload this page."
+msgstr ""
+
+#: includes/class-secwp-2fa.php:668
+msgid "Two-factor setup code"
+msgstr ""
+
+#: includes/class-secwp-2fa.php:673
 msgid "Required for your role."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:589
+#: includes/class-secwp-2fa.php:676
 msgid "1. Scan this with an authenticator app (Google Authenticator, 1Password, Aegis, Bitwarden — any of them)."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:601
+#: includes/class-secwp-2fa.php:688
 msgid "Or type this key in by hand:"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:605
+#: includes/class-secwp-2fa.php:692
 msgid "The QR code could not be drawn small enough for this site name, so enter the key by hand — it works exactly the same."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:608
+#: includes/class-secwp-2fa.php:695
 msgid "2. Enter the 6-digit code the app shows, then save this page."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:610
+#: includes/class-secwp-2fa.php:697
 msgid "000000"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:611
+#: includes/class-secwp-2fa.php:698
 msgid "Two-factor authentication only switches on once a correct code proves the app is set up — a half-finished setup can never lock you out. You will be given recovery codes at that point; keep them somewhere other than your phone."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:616
+#: includes/class-secwp-2fa.php:703
 msgid "Your recovery codes"
 msgstr ""
 
-#: includes/class-secwp-2fa.php:618
+#: includes/class-secwp-2fa.php:705
 msgid "Save these now — they are shown once and never again."
 msgstr ""
 
-#: includes/class-secwp-2fa.php:619
+#: includes/class-secwp-2fa.php:706
 msgid "Each code signs you in once if you lose your authenticator. Store them somewhere other than the device that holds the app."
 msgstr ""
 
-#: includes/class-secwp-admin.php:52
-#: includes/class-secwp-admin.php:72
-#: includes/class-secwp-admin.php:454
+#: includes/class-secwp-admin.php:57
+#: includes/class-secwp-admin.php:77
+#: includes/class-secwp-admin.php:532
 msgid "Protection enabled."
 msgstr ""
 
-#: includes/class-secwp-admin.php:53
-#: includes/class-secwp-admin.php:73
-#: includes/class-secwp-admin.php:455
+#: includes/class-secwp-admin.php:58
+#: includes/class-secwp-admin.php:78
+#: includes/class-secwp-admin.php:533
 msgid "Protection disabled."
 msgstr ""
 
-#: includes/class-secwp-admin.php:54
+#: includes/class-secwp-admin.php:59
 msgid "Could not save the change. Please try again."
 msgstr ""
 
-#: includes/class-secwp-admin.php:74
-#: includes/class-secwp-admin.php:456
+#: includes/class-secwp-admin.php:79
+#: includes/class-secwp-admin.php:534
 msgid "Settings saved."
 msgstr ""
 
-#: includes/class-secwp-admin.php:75
-#: includes/class-secwp-admin.php:138
-#: includes/class-secwp-admin.php:457
+#: includes/class-secwp-admin.php:80
+#: includes/class-secwp-admin.php:190
+#: includes/class-secwp-admin.php:535
 msgid "Unknown setting."
 msgstr ""
 
-#: includes/class-secwp-admin.php:102
-#: includes/class-secwp-ip-block-admin.php:173
-#: includes/class-secwp-ip-block-admin.php:181
+#: includes/class-secwp-admin.php:107
+#: includes/class-secwp-ip-block-admin.php:174
+#: includes/class-secwp-ip-block-admin.php:182
 msgid "Settings"
 msgstr ""
 
-#: includes/class-secwp-admin.php:131
-#: includes/class-secwp-admin.php:202
+#: includes/class-secwp-admin.php:120
+msgid "Check for updates"
+msgstr ""
+
+#: includes/class-secwp-admin.php:128
+#: includes/class-secwp-manual-update.php:78
+msgid "You do not have permission to update plugins."
+msgstr ""
+
+#: includes/class-secwp-admin.php:145
+msgid "A new INI Protector release is available from WordPress.org."
+msgstr ""
+
+#: includes/class-secwp-admin.php:146
+msgid "INI Protector is up to date with the latest release available from WordPress.org."
+msgstr ""
+
+#: includes/class-secwp-admin.php:147
+msgid "The latest INI Protector release requires a newer WordPress or PHP version. Update your environment before installing it."
+msgstr ""
+
+#: includes/class-secwp-admin.php:148
+msgid "Could not confirm the latest INI Protector version from WordPress.org. Please try again later."
+msgstr ""
+
+#: includes/class-secwp-admin.php:183
+#: includes/class-secwp-admin.php:254
 #: includes/class-secwp-integrity-admin.php:61
 #: includes/class-secwp-ip-block-admin.php:73
 #: includes/class-secwp-traffic-admin.php:88
@@ -272,38 +310,54 @@ msgid "You do not have permission."
 msgstr ""
 
 #. translators: 1: enabled count, 2: total.
-#: includes/class-secwp-admin.php:254
+#: includes/class-secwp-admin.php:306
 #, php-format
 msgid "%1$d of %2$d protections enabled."
 msgstr ""
 
-#: includes/class-secwp-admin.php:274
+#: includes/class-secwp-admin.php:326
 msgid "Configure ▾"
 msgstr ""
 
-#: includes/class-secwp-admin.php:314
+#: includes/class-secwp-admin.php:330
+msgid "Not on Apache: add these rules to your server config"
+msgstr ""
+
+#: includes/class-secwp-admin.php:336
+msgid "History set to \"Unlimited\". The database may become large."
+msgstr ""
+
+#: includes/class-secwp-admin.php:337
+msgid "Clean traffic history in Utilities"
+msgstr ""
+
+#: includes/class-secwp-admin.php:378
 msgid "Save settings"
 msgstr ""
 
-#: includes/class-secwp-admin.php:350
+#: includes/class-secwp-admin.php:420
 msgid "••••• (unchanged)"
 msgstr ""
 
-#: includes/class-secwp-admin.php:377
+#: includes/class-secwp-admin.php:426
+msgid "Remove the saved value"
+msgstr ""
+
+#: includes/class-secwp-admin.php:455
 msgid "No public REST namespaces registered."
 msgstr ""
 
-#: includes/class-secwp-admin.php:397
+#: includes/class-secwp-admin.php:475
 msgid "Always public (cannot be blocked):"
 msgstr ""
 
-#: includes/class-secwp-admin.php:402
+#: includes/class-secwp-admin.php:480
 msgid "These keep the INI WP control panel and its plugins working; each has its own authentication."
 msgstr ""
 
-#: includes/class-secwp-altcha.php:175
-#: includes/class-secwp-altcha.php:184
-#: includes/class-secwp-altcha.php:193
+#: includes/class-secwp-altcha.php:188
+#: includes/class-secwp-altcha.php:197
+#: includes/class-secwp-altcha.php:211
 msgid "<strong>Error:</strong> Please complete the verification challenge."
 msgstr ""
 
@@ -312,7 +366,7 @@ msgid "Every 5 minutes (INI Protector auto-block)"
 msgstr ""
 
 #. translators: 1: level, 2: why
-#: includes/class-secwp-autoblock.php:221
+#: includes/class-secwp-autoblock.php:232
 #, php-format
 msgid "Auto-block L%1$d: %2$s"
 msgstr ""
@@ -350,8 +404,8 @@ msgid "File integrity monitoring is off. Turn on “File integrity monitoring”
 msgstr ""
 
 #: includes/class-secwp-integrity-admin.php:191
-#: includes/class-secwp-ip-block-admin.php:193
-#: includes/class-secwp-traffic-admin.php:160
+#: includes/class-secwp-ip-block-admin.php:194
+#: includes/class-secwp-traffic-admin.php:157
 #: includes/class-secwp-vuln-admin.php:185
 msgid "Go to settings"
 msgstr ""
@@ -379,197 +433,205 @@ msgstr ""
 msgid "Scan now"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:260
+#: includes/class-secwp-integrity-admin.php:270
 msgid "No alert channel is configured"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:261
+#: includes/class-secwp-integrity-admin.php:271
 msgid "Changes are recorded on this server and nowhere else. An attacker who can write to the filesystem and the database can rewrite that record. Turn on the email alert (or set a webhook) in the INI Protector settings so every change leaves the server the moment it is found."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:268
+#: includes/class-secwp-integrity-admin.php:282
+msgid "The webhook points to a private address"
+msgstr ""
+
+#: includes/class-secwp-integrity-admin.php:283
+msgid "Integrity reports are being POSTed to an address inside your own network rather than to the public internet. That is correct if you run a collector there. If you did not set this deliberately, treat it as suspicious and clear it: the webhook is stored in the database, so anyone who reached your settings could have pointed it somewhere of their choosing."
+msgstr ""
+
+#: includes/class-secwp-integrity-admin.php:290
 msgid "The last alert could not be delivered"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:269
+#: includes/class-secwp-integrity-admin.php:291
 msgid "Every configured channel failed, so the baseline was deliberately NOT updated — the same changes will be reported again on the next run rather than being silently accepted. Check that this site can send mail (or that the webhook URL is reachable)."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:276
+#: includes/class-secwp-integrity-admin.php:298
 msgid "The file limit was reached"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:277
+#: includes/class-secwp-integrity-admin.php:299
 msgid "Part of the tree was not hashed, so changes there would not be seen. Raise “Maximum files” or exclude a directory that does not hold code."
 msgstr ""
 
 #. translators: %d: number of unreadable files.
-#: includes/class-secwp-integrity-admin.php:286
+#: includes/class-secwp-integrity-admin.php:308
 #, php-format
 msgid "%d file could not be read"
 msgid_plural "%d files could not be read"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-secwp-integrity-admin.php:289
+#: includes/class-secwp-integrity-admin.php:311
 msgid "These are left in the baseline unchanged (they are not reported as deleted). Usually a permissions issue: "
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:310
+#: includes/class-secwp-integrity-admin.php:332
 msgid "Changes found in the last check"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:316
+#: includes/class-secwp-integrity-admin.php:338
 msgid "No scan has run yet. The first scan records a baseline — it does not report anything."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:318
+#: includes/class-secwp-integrity-admin.php:340
 msgid "Baseline recorded. From the next check onwards, any new, modified, or deleted code file is reported."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:320
+#: includes/class-secwp-integrity-admin.php:342
 msgid "No code file has been added, changed, or deleted since the last check."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:325
-#: includes/class-secwp-integrity-admin.php:390
+#: includes/class-secwp-integrity-admin.php:347
+#: includes/class-secwp-integrity-admin.php:412
 msgid "State"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:325
-#: includes/class-secwp-integrity-admin.php:390
+#: includes/class-secwp-integrity-admin.php:347
+#: includes/class-secwp-integrity-admin.php:412
 msgid "File"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:325
+#: includes/class-secwp-integrity-admin.php:347
 msgid "Size"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:325
+#: includes/class-secwp-integrity-admin.php:347
 msgid "Modified"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:325
+#: includes/class-secwp-integrity-admin.php:347
 msgid "SHA-256"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:341
+#: includes/class-secwp-integrity-admin.php:363
 msgid "critical location"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:344
+#: includes/class-secwp-integrity-admin.php:366
 msgid "Content changed without the timestamp moving — self-rewriting file or a forged mtime."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:358
+#: includes/class-secwp-integrity-admin.php:380
 msgid "Only the first 500 changes are stored. A change set this large is usually an update or a restore — re-baseline once you have confirmed it."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:363
+#: includes/class-secwp-integrity-admin.php:385
 msgid "Accept current state as the baseline"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:363
+#: includes/class-secwp-integrity-admin.php:385
 msgid "This marks every file on disk right now as known-good. Only do this once you have confirmed the changes are yours."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:365
+#: includes/class-secwp-integrity-admin.php:387
 msgid "Clear the baseline"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:365
+#: includes/class-secwp-integrity-admin.php:387
 msgid "Deletes the stored baseline. The next scan records a fresh one and reports nothing."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:371
+#: includes/class-secwp-integrity-admin.php:393
 msgid "State digest of this baseline:"
 msgstr ""
 
 #. translators: %d: report number.
-#: includes/class-secwp-integrity-admin.php:373
+#: includes/class-secwp-integrity-admin.php:395
 #, php-format
 msgid " (report #%d)"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:387
+#: includes/class-secwp-integrity-admin.php:409
 msgid "Recent change history"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:390
-#: includes/class-secwp-utilities-admin.php:195
+#: includes/class-secwp-integrity-admin.php:412
+#: includes/class-secwp-utilities-admin.php:218
 msgid "When"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:390
+#: includes/class-secwp-integrity-admin.php:412
 msgid "Report"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:404
+#: includes/class-secwp-integrity-admin.php:426
 msgid "critical"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:418
+#: includes/class-secwp-integrity-admin.php:440
 msgid "Scheduling"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:422
+#: includes/class-secwp-integrity-admin.php:444
 msgid "Automatic checks are off — the scan only runs when you start it here or from WP-CLI."
 msgstr ""
 
 #. translators: 1: recurrence, 2: next run time.
-#: includes/class-secwp-integrity-admin.php:430
+#: includes/class-secwp-integrity-admin.php:452
 #, php-format
 msgid "Scheduled %1$s. Next run: %2$s."
 msgstr ""
 
 #. translators: %s: recurrence.
-#: includes/class-secwp-integrity-admin.php:434
+#: includes/class-secwp-integrity-admin.php:456
 #, php-format
 msgid "Scheduled %s — no event is queued yet."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:440
+#: includes/class-secwp-integrity-admin.php:462
 msgid "WP-Cron is disabled on this site (DISABLE_WP_CRON)."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:441
+#: includes/class-secwp-integrity-admin.php:463
 msgid "The schedule above will not fire on its own. Run the scan from system cron instead — the recommended setup anyway, because it does not depend on a visitor hitting the site:"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:444
+#: includes/class-secwp-integrity-admin.php:466
 msgid "You can also run the scan from system cron, which does not depend on site traffic:"
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:452
+#: includes/class-secwp-integrity-admin.php:474
 msgid "The command exits with status 1 when changes are found and 0 when clean, so a monitoring system can act on it directly. Add --format=json for machine-readable output."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:491
+#: includes/class-secwp-integrity-admin.php:513
 msgid "Scan complete — no changes."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:492
+#: includes/class-secwp-integrity-admin.php:514
 msgid "Scan complete — changes were found. Review them below."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:493
+#: includes/class-secwp-integrity-admin.php:515
 msgid "Baseline updated to the current state of the site."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:494
+#: includes/class-secwp-integrity-admin.php:516
 msgid "Baseline cleared. The next scan records a fresh one."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:495
+#: includes/class-secwp-integrity-admin.php:517
 msgid "Alert dismissed until the change set changes."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:496
+#: includes/class-secwp-integrity-admin.php:518
 msgid "Turn on file integrity monitoring first."
 msgstr ""
 
-#: includes/class-secwp-integrity-admin.php:497
-#: includes/class-secwp-utilities-admin.php:271
+#: includes/class-secwp-integrity-admin.php:519
+#: includes/class-secwp-utilities-admin.php:296
 msgid "Unknown action."
 msgstr ""
 
@@ -704,7 +766,7 @@ msgstr ""
 
 #: includes/class-secwp-ip-block-admin.php:59
 #: includes/class-secwp-ip-block-admin.php:60
-#: includes/class-secwp-ip-block-admin.php:138
+#: includes/class-secwp-ip-block-admin.php:139
 msgid "IP Block"
 msgstr ""
 
@@ -723,155 +785,193 @@ msgstr ""
 msgid "Blocked from IP Block page"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:162
+#: includes/class-secwp-ip-block-admin.php:163
 msgid "Auto-block escalation is off — these are manual blocks and one-off suggestions only."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:164
+#: includes/class-secwp-ip-block-admin.php:165
 msgid "Turn it on"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:171
+#: includes/class-secwp-ip-block-admin.php:172
 msgid "Auto-Block is ON — offending IPs are blocked automatically on an escalating schedule (1h → 2w)."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:179
+#: includes/class-secwp-ip-block-admin.php:180
 msgid "Block Suggestion System — the engine suggests blocks for you to review and Apply; it does not block automatically. Enable “Enforce” to switch to Auto-Block."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:186
+#: includes/class-secwp-ip-block-admin.php:187
 msgid "Suggested by the system"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:191
+#: includes/class-secwp-ip-block-admin.php:192
 msgid "The traffic monitor is off, so there are no suggestions yet. Turn on “Traffic monitor” to start flagging abusive IPs."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:200
+#: includes/class-secwp-ip-block-admin.php:201
 msgid "No IPs are over the abuse threshold right now. Nothing to suggest."
 msgstr ""
 
 #. translators: %d: look-back window in hours
-#: includes/class-secwp-ip-block-admin.php:210
+#: includes/class-secwp-ip-block-admin.php:211
 #, php-format
 msgid "IPs that crossed an abuse threshold in the last %d hours. Apply a block, or open the IP to investigate first."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:217
-#: includes/class-secwp-ip-block-admin.php:257
-#: includes/class-secwp-traffic-admin.php:383
-#: includes/class-secwp-traffic-admin.php:440
+#: includes/class-secwp-ip-block-admin.php:218
+#: includes/class-secwp-ip-block-admin.php:258
+#: includes/class-secwp-traffic-admin.php:380
+#: includes/class-secwp-traffic-admin.php:437
 msgid "IP"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:217
+#: includes/class-secwp-ip-block-admin.php:218
 #: includes/class-secwp-vuln-admin.php:271
 msgid "Severity"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:217
+#: includes/class-secwp-ip-block-admin.php:218
 msgid "Why"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:240
+#: includes/class-secwp-ip-block-admin.php:241
 msgid "Currently blocked"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:248
+#: includes/class-secwp-ip-block-admin.php:249
 msgid "IP address to block"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:249
+#: includes/class-secwp-ip-block-admin.php:250
 msgid "Block IP"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:254
+#: includes/class-secwp-ip-block-admin.php:255
 msgid "No IPs are blocked."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:257
-#: includes/class-secwp-traffic-admin.php:417
-#: includes/class-secwp-traffic-admin.php:440
-#: includes/class-secwp-traffic-admin.php:675
+#: includes/class-secwp-ip-block-admin.php:258
+#: includes/class-secwp-traffic-admin.php:414
+#: includes/class-secwp-traffic-admin.php:437
+#: includes/class-secwp-traffic-admin.php:672
 msgid "Reason"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:257
+#: includes/class-secwp-ip-block-admin.php:258
 msgid "Source"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:257
-#: includes/class-secwp-traffic-admin.php:751
+#: includes/class-secwp-ip-block-admin.php:258
+#: includes/class-secwp-traffic-admin.php:748
 msgid "Blocked"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:257
+#: includes/class-secwp-ip-block-admin.php:258
 msgid "Expires"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:290
+#: includes/class-secwp-ip-block-admin.php:291
 msgid "Manual"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:291
+#: includes/class-secwp-ip-block-admin.php:292
 msgid "Suggested"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:292
+#: includes/class-secwp-ip-block-admin.php:293
 msgid "Auto"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:301
+#: includes/class-secwp-ip-block-admin.php:302
 msgid "Permanent"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:304
+#: includes/class-secwp-ip-block-admin.php:305
 msgid "Expired"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:311
+#: includes/class-secwp-ip-block-admin.php:312
 msgid "High"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:312
+#: includes/class-secwp-ip-block-admin.php:313
 msgid "Medium"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:327
+#: includes/class-secwp-ip-block-admin.php:328
 msgid "Apply block"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:341
-#: includes/class-secwp-traffic-admin.php:781
+#: includes/class-secwp-ip-block-admin.php:342
+#: includes/class-secwp-traffic-admin.php:778
 msgid "Unblock"
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:353
-#: includes/class-secwp-traffic-admin.php:798
+#: includes/class-secwp-ip-block-admin.php:354
+#: includes/class-secwp-traffic-admin.php:795
 msgid "IP blocked."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:354
-#: includes/class-secwp-traffic-admin.php:799
+#: includes/class-secwp-ip-block-admin.php:355
+#: includes/class-secwp-traffic-admin.php:796
 msgid "IP unblocked."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:355
-#: includes/class-secwp-ip-block.php:120
-#: includes/class-secwp-traffic-admin.php:802
+#: includes/class-secwp-ip-block-admin.php:356
+#: includes/class-secwp-ip-block.php:139
+#: includes/class-secwp-traffic-admin.php:800
 msgid "You can’t block your own current IP address."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:356
-#: includes/class-secwp-ip-block.php:117
-#: includes/class-secwp-traffic-admin.php:803
+#: includes/class-secwp-ip-block-admin.php:357
+#: includes/class-secwp-ip-block.php:136
+#: includes/class-secwp-traffic-admin.php:801
 msgid "That is not a valid IP address."
 msgstr ""
 
-#: includes/class-secwp-ip-block-admin.php:357
-#: includes/class-secwp-ip-block.php:124
-#: includes/class-secwp-traffic-admin.php:804
+#: includes/class-secwp-ip-block-admin.php:358
+#: includes/class-secwp-ip-block.php:145
+#: includes/class-secwp-traffic-admin.php:802
 msgid "The blocklist is full."
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:16
+msgid "Could not check WordPress.org. Please try again later."
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:23
+msgid "WordPress.org returned invalid release information. Please try again later."
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:27
+msgid "WordPress.org returned invalid release requirements."
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:62
+msgid "Please check for INI Protector updates again to refresh the available release."
+msgstr ""
+
+#. translators: %s: available plugin version.
+#: includes/class-secwp-manual-update.php:69
+#, php-format
+msgid "INI Protector %s is available from WordPress.org."
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:71
+msgid "Update now"
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:87
+msgid "This update is no longer available or compatible. Return to Plugins and check for updates again."
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:92
+msgid "Update INI Protector"
+msgstr ""
+
+#: includes/class-secwp-manual-update.php:121
+msgid "The downloaded package does not match the selected INI Protector release."
 msgstr ""
 
 #: includes/class-secwp-traffic-admin.php:46
@@ -907,38 +1007,38 @@ msgstr ""
 msgid "Blocked from Traffic view"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:151
+#: includes/class-secwp-traffic-admin.php:148
 msgid "Traffic & threats"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:158
+#: includes/class-secwp-traffic-admin.php:155
 msgid "The traffic monitor is off, so there is nothing to show yet. Turn on “Traffic monitor” to start recording suspicious requests."
 msgstr ""
 
 #. translators: %s: number of stored requests
-#: includes/class-secwp-traffic-admin.php:213
+#: includes/class-secwp-traffic-admin.php:210
 #, php-format
 msgid "%s requests stored"
 msgstr ""
 
 #. translators: %s: formatted size, e.g. "5 MB"
-#: includes/class-secwp-traffic-admin.php:217
+#: includes/class-secwp-traffic-admin.php:214
 #, php-format
 msgid "%s on disk"
 msgstr ""
 
 #. translators: %s: date of the oldest stored request
-#: includes/class-secwp-traffic-admin.php:222
+#: includes/class-secwp-traffic-admin.php:219
 #, php-format
 msgid "oldest %s"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:226
+#: includes/class-secwp-traffic-admin.php:223
 msgid "kept indefinitely"
 msgstr ""
 
 #. translators: %d: retention window in days
-#: includes/class-secwp-traffic-admin.php:229
+#: includes/class-secwp-traffic-admin.php:226
 #, php-format
 msgid "kept %d day"
 msgid_plural "kept %d days"
@@ -946,283 +1046,288 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: maximum number of rows kept
-#: includes/class-secwp-traffic-admin.php:234
+#: includes/class-secwp-traffic-admin.php:231
 #, php-format
 msgid "max %s rows"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:235
+#: includes/class-secwp-traffic-admin.php:232
 msgid "no row limit"
 msgstr ""
 
 #. translators: 1: requests per day, 2: projected size per year, e.g. "1.2 GB"
-#: includes/class-secwp-traffic-admin.php:243
+#: includes/class-secwp-traffic-admin.php:240
 #, php-format
 msgid "At the recent rate of %1$s requests/day that is roughly %2$s per year — it lands in your database backups too."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:251
+#: includes/class-secwp-traffic-admin.php:248
 msgid " · "
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:253
+#: includes/class-secwp-traffic-admin.php:250
 msgid "Retention settings"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:289
+#: includes/class-secwp-traffic-admin.php:286
 msgid "Traffic retention"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:290
+#: includes/class-secwp-traffic-admin.php:287
 msgid "Close"
 msgstr ""
 
 #. translators: 1: requests per day, 2: size per row, 3: size added per month
-#: includes/class-secwp-traffic-admin.php:329
+#: includes/class-secwp-traffic-admin.php:326
 #, php-format
 msgid "This site records about %1$s requests a day at roughly %2$s each — around %3$s of database (and backup) growth per month at the current rate. Keeping history costs disk, not page speed: the log is written after the response is sent."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:339
+#: includes/class-secwp-traffic-admin.php:336
 msgid "Visitor IPs and user-agents are personal data. Keeping them indefinitely is a deliberate choice, not a default."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:344
+#: includes/class-secwp-traffic-admin.php:341
 msgid "All INI Protector settings"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:346
+#: includes/class-secwp-traffic-admin.php:343
 msgid "Cancel"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:347
+#: includes/class-secwp-traffic-admin.php:344
 msgid "Save retention"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:360
-#: includes/class-secwp-traffic-admin.php:383
-#: includes/class-secwp-traffic-admin.php:583
+#: includes/class-secwp-traffic-admin.php:357
+#: includes/class-secwp-traffic-admin.php:380
+#: includes/class-secwp-traffic-admin.php:580
 msgid "Requests"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:361
+#: includes/class-secwp-traffic-admin.php:358
 msgid "Unique IPs"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:362
-#: includes/class-secwp-traffic-admin.php:383
-#: includes/class-secwp-traffic-admin.php:584
-#: includes/class-secwp-traffic-admin.php:636
-#: includes/class-secwp-traffic-admin.php:707
+#: includes/class-secwp-traffic-admin.php:359
+#: includes/class-secwp-traffic-admin.php:380
+#: includes/class-secwp-traffic-admin.php:581
+#: includes/class-secwp-traffic-admin.php:633
+#: includes/class-secwp-traffic-admin.php:704
 msgid "Suspicious"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:363
-#: includes/class-secwp-traffic-admin.php:383
-#: includes/class-secwp-traffic-admin.php:585
+#: includes/class-secwp-traffic-admin.php:360
+#: includes/class-secwp-traffic-admin.php:380
+#: includes/class-secwp-traffic-admin.php:582
 msgid "404s"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:364
-#: includes/class-secwp-traffic-admin.php:586
+#: includes/class-secwp-traffic-admin.php:361
+#: includes/class-secwp-traffic-admin.php:583
 msgid "Login attempts"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:378
+#: includes/class-secwp-traffic-admin.php:375
 msgid "Top offender IPs"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:380
+#: includes/class-secwp-traffic-admin.php:377
 msgid "No traffic recorded in this window."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:383
+#: includes/class-secwp-traffic-admin.php:380
 msgid "Logins"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:383
+#: includes/class-secwp-traffic-admin.php:380
 msgid "Last seen"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:412
+#: includes/class-secwp-traffic-admin.php:409
 msgid "Suspicious paths"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:414
+#: includes/class-secwp-traffic-admin.php:411
 msgid "Nothing suspicious in this window."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:417
-#: includes/class-secwp-traffic-admin.php:440
-#: includes/class-secwp-traffic-admin.php:636
-#: includes/class-secwp-traffic-admin.php:675
+#: includes/class-secwp-traffic-admin.php:414
+#: includes/class-secwp-traffic-admin.php:437
+#: includes/class-secwp-traffic-admin.php:633
+#: includes/class-secwp-traffic-admin.php:672
 msgid "Path"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:417
-#: includes/class-secwp-traffic-admin.php:617
-#: includes/class-secwp-traffic-admin.php:636
-#: includes/class-secwp-traffic-admin.php:656
+#: includes/class-secwp-traffic-admin.php:414
+#: includes/class-secwp-traffic-admin.php:614
+#: includes/class-secwp-traffic-admin.php:633
+#: includes/class-secwp-traffic-admin.php:653
 msgid "Hits"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:417
+#: includes/class-secwp-traffic-admin.php:414
 msgid "IPs"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:435
+#: includes/class-secwp-traffic-admin.php:432
 msgid "Recent suspicious requests"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:437
+#: includes/class-secwp-traffic-admin.php:434
 msgid "None recorded."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:440
-#: includes/class-secwp-traffic-admin.php:675
+#: includes/class-secwp-traffic-admin.php:437
+#: includes/class-secwp-traffic-admin.php:672
 msgid "Time"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:440
-#: includes/class-secwp-traffic-admin.php:675
+#: includes/class-secwp-traffic-admin.php:437
+#: includes/class-secwp-traffic-admin.php:672
 msgid "Method"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:440
-#: includes/class-secwp-traffic-admin.php:656
-#: includes/class-secwp-traffic-admin.php:675
+#: includes/class-secwp-traffic-admin.php:437
+#: includes/class-secwp-traffic-admin.php:653
+#: includes/class-secwp-traffic-admin.php:672
 msgid "User agent"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:469
+#: includes/class-secwp-traffic-admin.php:466
 msgid "Manage blocked IPs & suggestions"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:475
+#: includes/class-secwp-traffic-admin.php:472
 msgid "Clear the entire traffic log?"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:480
+#: includes/class-secwp-traffic-admin.php:477
 msgid "Clear traffic log"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:496
+#: includes/class-secwp-traffic-admin.php:493
 msgid "IP activity"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:503
+#: includes/class-secwp-traffic-admin.php:500
 msgid "← Back to traffic overview"
 msgstr ""
 
 #. translators: 1: request count, 2: window in hours. Nothing is pruned by age.
-#: includes/class-secwp-traffic-admin.php:520
+#: includes/class-secwp-traffic-admin.php:517
 #, php-format
 msgid "%1$s requests · last %2$d h (history kept indefinitely)"
 msgstr ""
 
 #. translators: 1: request count, 2: window in hours, 3: retention in days
-#: includes/class-secwp-traffic-admin.php:526
+#: includes/class-secwp-traffic-admin.php:523
 #, php-format
 msgid "%1$s requests · last %2$d h (max %3$d-day history)"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:541
+#: includes/class-secwp-traffic-admin.php:538
 msgid "No activity recorded for this IP in this window."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:542
+#: includes/class-secwp-traffic-admin.php:539
 msgid "The traffic monitor is off, so no activity is recorded."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:564
+#: includes/class-secwp-traffic-admin.php:561
 msgid "Why this looks suspicious"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:572
+#: includes/class-secwp-traffic-admin.php:569
 msgid "Status codes"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:573
+#: includes/class-secwp-traffic-admin.php:570
 msgid "Suspicious reasons"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:587
+#: includes/class-secwp-traffic-admin.php:584
 msgid "Paths"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:588
-#: includes/class-secwp-traffic-admin.php:654
+#: includes/class-secwp-traffic-admin.php:585
+#: includes/class-secwp-traffic-admin.php:651
 msgid "User agents"
 msgstr ""
 
 #. translators: 1: first-seen datetime, 2: last-seen datetime
-#: includes/class-secwp-traffic-admin.php:603
+#: includes/class-secwp-traffic-admin.php:600
 #, php-format
 msgid "First seen %1$s · last seen %2$s"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:634
+#: includes/class-secwp-traffic-admin.php:631
 msgid "Top paths"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:662
+#: includes/class-secwp-traffic-admin.php:659
 msgid "(empty)"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:670
+#: includes/class-secwp-traffic-admin.php:667
 msgid "Request timeline"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:672
+#: includes/class-secwp-traffic-admin.php:669
 msgid "No requests in this window."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:706
+#: includes/class-secwp-traffic-admin.php:703
 msgid "Hostile"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:708
+#: includes/class-secwp-traffic-admin.php:705
 msgid "Watch"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:709
+#: includes/class-secwp-traffic-admin.php:706
 msgid "Looks clean"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:728
+#: includes/class-secwp-traffic-admin.php:725
 msgid "Multiple abuse signals at once, or a severe one on its own — e.g. 50+ login attempts, 200+ suspicious requests. Strong block candidate."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:729
+#: includes/class-secwp-traffic-admin.php:726
 msgid "A clear abuse pattern: 50+ “not found” responses (scanning), 20+ login attempts (brute-force), 1,000+ requests (flooding), or many rotating user-agents. Worth investigating."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:730
+#: includes/class-secwp-traffic-admin.php:727
 msgid "Some requests were flagged (a 404, an empty user-agent, a probe) but below any abuse threshold. Usually a stray bot — keep an eye on it."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:731
+#: includes/class-secwp-traffic-admin.php:728
 msgid "Nothing flagged in this window — normal traffic."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:736
+#: includes/class-secwp-traffic-admin.php:733
 msgid "Verdict levels"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:764
+#: includes/class-secwp-traffic-admin.php:761
 msgid "Block"
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:800
+#: includes/class-secwp-traffic-admin.php:797
+#: includes/class-secwp-utilities-admin.php:295
+msgid "Traffic history could not be cleared. Please try again or check database permissions."
+msgstr ""
+
+#: includes/class-secwp-traffic-admin.php:798
 msgid "Traffic log cleared."
 msgstr ""
 
-#: includes/class-secwp-traffic-admin.php:801
+#: includes/class-secwp-traffic-admin.php:799
 msgid "Retention settings saved."
 msgstr ""
 
 #. translators: %d: number of login attempts from this IP
-#: includes/class-secwp-traffic-log.php:571
+#: includes/class-secwp-traffic-log.php:754
 #, php-format
 msgid "%d login attempt (brute-force)"
 msgid_plural "%d login attempts (brute-force)"
@@ -1230,7 +1335,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of 404 responses this IP received
-#: includes/class-secwp-traffic-log.php:576
+#: includes/class-secwp-traffic-log.php:759
 #, php-format
 msgid "%d 404 (scanning)"
 msgid_plural "%d 404s (scanning)"
@@ -1238,7 +1343,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of suspicious requests from this IP
-#: includes/class-secwp-traffic-log.php:581
+#: includes/class-secwp-traffic-log.php:764
 #, php-format
 msgid "%d suspicious request"
 msgid_plural "%d suspicious requests"
@@ -1246,7 +1351,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: total number of requests from this IP
-#: includes/class-secwp-traffic-log.php:586
+#: includes/class-secwp-traffic-log.php:769
 #, php-format
 msgid "%d request (flooding)"
 msgid_plural "%d requests (flooding)"
@@ -1254,144 +1359,168 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of distinct user-agents seen from this IP
-#: includes/class-secwp-traffic-log.php:592
+#: includes/class-secwp-traffic-log.php:775
 #, php-format
 msgid "%d distinct user-agent (rotating)"
 msgid_plural "%d distinct user-agents (rotating)"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-secwp-tweaks.php:543
+#: includes/class-secwp-tweaks.php:553
 msgid "Feeds are disabled on this site."
 msgstr ""
 
 #: includes/class-secwp-utilities-admin.php:47
 #: includes/class-secwp-utilities-admin.php:48
-#: includes/class-secwp-utilities-admin.php:89
+#: includes/class-secwp-utilities-admin.php:93
 msgid "Utilities"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:92
-msgid "Maintenance actions for the hardening features. Nothing here changes how protected the site is."
+#: includes/class-secwp-utilities-admin.php:96
+msgid "Maintenance actions for asset caching and traffic history."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:104
-#: includes/class-secwp-utilities-admin.php:171
-msgid "Rotate asset cache token"
+#: includes/class-secwp-utilities-admin.php:107
+msgid "Clean traffic table contents"
 msgstr ""
 
 #: includes/class-secwp-utilities-admin.php:109
+msgid "Permanently delete all recorded traffic history to free database space."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:110
+msgid "This cannot be undone. Traffic reports and new automatic-block suggestions will start from fresh history. Existing IP blocks and settings are kept. New requests will continue to be recorded while the traffic monitor is enabled."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:115
+msgid "Permanently delete all traffic history? This cannot be undone. Existing IP blocks and settings will be kept."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:115
+msgid "Clean traffic table"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:127
+#: includes/class-secwp-utilities-admin.php:194
+msgid "Rotate asset cache token"
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:132
 msgid "Changes the version token on every CSS and JS URL. Use after a deploy if visitors are still seeing old styles or scripts."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:114
+#: includes/class-secwp-utilities-admin.php:137
 msgid "Why this is needed: the masked token is derived from the version an asset declares, so a plugin that hard-codes a version string keeps the same URL even after its file changes — and a browser that has been here before keeps using its cached copy."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:122
+#: includes/class-secwp-utilities-admin.php:145
 msgid "This has a cost."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:123
+#: includes/class-secwp-utilities-admin.php:146
 msgid "Rotating invalidates every asset URL at once, so the next visit re-downloads all CSS and JS. That is fine occasionally and wasteful as a habit — reach for it after a deploy, not on a schedule."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:133
+#: includes/class-secwp-utilities-admin.php:156
 msgid "“Remove version on static assets” is on, so asset URLs carry no version at all and there is no token to rotate. Rotating now will have no visible effect."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:134
+#: includes/class-secwp-utilities-admin.php:157
 msgid "“Mask version on static assets” is off, so the real ?ver= is being sent and there is no token to rotate. Rotating now will have no visible effect."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:140
+#: includes/class-secwp-utilities-admin.php:163
 msgid "Head cleanup settings"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:149
+#: includes/class-secwp-utilities-admin.php:172
 msgid "Current token"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:151
+#: includes/class-secwp-utilities-admin.php:174
 msgid "(identifies the salt in use — not the salt itself)"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:155
+#: includes/class-secwp-utilities-admin.php:178
 msgid "Last rotated"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:170
+#: includes/class-secwp-utilities-admin.php:193
 msgid "Rotate the asset cache token? Every visitor will re-download all CSS and JS once."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:177
+#: includes/class-secwp-utilities-admin.php:200
 msgid "From a deploy script:"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:178
+#: includes/class-secwp-utilities-admin.php:201
 msgid "run it after the step that syncs changed files. If the site is behind a page cache, purge that too: cached HTML still contains the old asset URLs."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:193
+#: includes/class-secwp-utilities-admin.php:216
 msgid "Rotation history"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:196
+#: includes/class-secwp-utilities-admin.php:219
 msgid "By"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:197
+#: includes/class-secwp-utilities-admin.php:220
 msgid "From"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:198
+#: includes/class-secwp-utilities-admin.php:221
 msgid "Token"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:221
+#: includes/class-secwp-utilities-admin.php:244
 msgid "Never — the token has not been rotated since it was first generated."
 msgstr ""
 
 #. translators: 1: date and time, 2: user name or "unknown", 3: where the rotation came from.
-#: includes/class-secwp-utilities-admin.php:225
+#: includes/class-secwp-utilities-admin.php:248
 #, php-format
 msgid "%1$s by %2$s (%3$s)"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:234
+#: includes/class-secwp-utilities-admin.php:257
 msgid "unknown"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:246
+#: includes/class-secwp-utilities-admin.php:269
 msgid "no logged-in user"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:251
+#: includes/class-secwp-utilities-admin.php:274
 msgid "from the admin"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:252
-#: includes/class-secwp-utilities-admin.php:253
-#: includes/class-secwp-utilities-admin.php:254
+#: includes/class-secwp-utilities-admin.php:275
+#: includes/class-secwp-utilities-admin.php:276
+#: includes/class-secwp-utilities-admin.php:277
 msgid "from WP-CLI"
 msgstr ""
 
 #. translators: %s: the source label recorded with the rotation.
-#: includes/class-secwp-utilities-admin.php:258
+#: includes/class-secwp-utilities-admin.php:281
 #, php-format
 msgid "from %s"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:259
+#: includes/class-secwp-utilities-admin.php:282
 msgid "an unknown source"
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:269
+#: includes/class-secwp-utilities-admin.php:292
 msgid "Asset cache token rotated. Every CSS and JS URL has changed; visitors will re-download them once."
 msgstr ""
 
-#: includes/class-secwp-utilities-admin.php:270
+#: includes/class-secwp-utilities-admin.php:293
 msgid "Asset cache token rotated, but version masking is off — asset URLs are unchanged for visitors until you turn “Mask version on static assets” on."
+msgstr ""
+
+#: includes/class-secwp-utilities-admin.php:294
+msgid "Traffic history cleared. Existing IP blocks and settings were kept."
 msgstr ""
 
 #: includes/class-secwp-vuln-admin.php:43
@@ -1450,7 +1579,7 @@ msgid "Components that could not be checked"
 msgstr ""
 
 #: includes/class-secwp-vuln-admin.php:252
-msgid "The database could not be reached for these components in the last scan, so they are neither confirmed safe nor flagged. They will be retried on the next scan."
+msgid "These components could not be checked in the last scan (the database could not be reached, or the scan ran out of time), so they are not confirmed safe. Findings from earlier scans are kept. They will be retried on the next scan."
 msgstr ""
 
 #: includes/class-secwp-vuln-admin.php:269

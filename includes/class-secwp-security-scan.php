@@ -212,11 +212,17 @@ class SecurityWP_Security_Scan {
 			return $found;
 		}
 		// CATCH_GET_CHILD: skip (don't fatal on) subdirectories we can't open on shared hosts.
-		$it = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ),
-			RecursiveIteratorIterator::LEAVES_ONLY,
-			RecursiveIteratorIterator::CATCH_GET_CHILD
-		);
+		// The constructor still throws when $dir itself can't be opened; that must not
+		// take the whole scan down either.
+		try {
+			$it = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ),
+				RecursiveIteratorIterator::LEAVES_ONLY,
+				RecursiveIteratorIterator::CATCH_GET_CHILD
+			);
+		} catch ( UnexpectedValueException $e ) {
+			return $found;
+		}
 		foreach ( $it as $file ) {
 			if ( ! $file->isFile() || ! self::is_executable( $file->getFilename() ) ) {
 				continue;
@@ -239,13 +245,19 @@ class SecurityWP_Security_Scan {
 			return $found;
 		}
 		// CATCH_GET_CHILD: skip (don't fatal on) subdirectories we can't open on shared hosts.
-		$it = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ),
-			RecursiveIteratorIterator::LEAVES_ONLY,
-			RecursiveIteratorIterator::CATCH_GET_CHILD
-		);
+		// The constructor still throws when $dir itself can't be opened; that must not
+		// take the whole scan down either.
+		try {
+			$it = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ),
+				RecursiveIteratorIterator::LEAVES_ONLY,
+				RecursiveIteratorIterator::CATCH_GET_CHILD
+			);
+		} catch ( UnexpectedValueException $e ) {
+			return $found;
+		}
 		foreach ( $it as $file ) {
-			if ( $file->isFile() && self::is_executable( $file->getFilename() ) ) {
+			if ( $file->isFile() && self::is_executable( $file->getFilename() ) && ! self::is_deny_only_htaccess( $file ) ) {
 				$found[] = 'uploads/' . str_replace( '\\', '/', substr( $file->getPathname(), strlen( $dir ) + 1 ) );
 				if ( count( $found ) >= $limit ) {
 					break;
@@ -256,6 +268,35 @@ class SecurityWP_Security_Scan {
 	}
 
 	// ── helpers ─────────────────────────────────────────────────────────────────
+
+	/**
+	 * A protective .htaccess that only denies access (WooCommerce, many form and backup
+	 * plugins put one in their uploads folder). It can't make anything executable, so
+	 * flagging it would fail the scan on nearly every WooCommerce site. Any other
+	 * directive — AddHandler, SetHandler, php_value, rewrites — still gets it reported.
+	 */
+	private static function is_deny_only_htaccess( SplFileInfo $file ): bool {
+		if ( '.htaccess' !== strtolower( $file->getFilename() ) || $file->getSize() > 4096 || ! $file->isReadable() ) {
+			return false;
+		}
+		$lines = file( $file->getPathname(), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		if ( ! is_array( $lines ) ) {
+			return false;
+		}
+		$allowed = '/^(#.*|deny\s+from\s+all|order\s+(allow\s*,\s*deny|deny\s*,\s*allow)|require\s+all\s+denied|options\s+-indexes|<\/?ifmodule(\s+!?[a-z0-9_.]+)?>|<\/?files(match)?(\s+[^>]*)?>)$/i';
+		$seen    = false;
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( '' === $line ) {
+				continue;
+			}
+			if ( ! preg_match( $allowed, $line ) ) {
+				return false;
+			}
+			$seen = $seen || (bool) preg_match( '/^(deny\s+from\s+all|require\s+all\s+denied)$/i', $line );
+		}
+		return $seen;
+	}
 
 	/**
 	 * Shared with the integrity monitor, deliberately.
@@ -287,6 +328,8 @@ class SecurityWP_Security_Scan {
 		$integrity_fail = isset( $out['integrity']['status'] ) && 'fail' === $out['integrity']['status'];
 		if ( $integrity_fail ) {
 			$counts['fail']++;
+		} elseif ( isset( $out['integrity']['ok'] ) && ! $out['integrity']['ok'] ) {
+			$counts['warn']++; // Core files were never checked: not a pass.
 		}
 		$worst = $counts['fail'] > 0 ? 'fail' : ( $counts['warn'] > 0 ? 'warn' : 'pass' );
 		return array( 'status' => $worst, 'pass' => $counts['pass'], 'warn' => $counts['warn'], 'fail' => $counts['fail'] );

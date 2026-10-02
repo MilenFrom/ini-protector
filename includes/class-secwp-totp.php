@@ -179,6 +179,12 @@ class SecurityWP_TOTP {
 		if ( $slot <= $last ) {
 			return false;
 		}
+		// The meta check alone is read-then-write: two requests with the same code can both
+		// read the old slot. Claiming the step is atomic, so exactly one of them wins.
+		// (Steps are 30s and at most one step either side is accepted, so 3 minutes covers it.)
+		if ( ! SecurityWP_Atomic::claim( 'totp|' . $user_id . '|' . $slot, 180 ) ) {
+			return false;
+		}
 		update_user_meta( $user_id, self::META_LAST_SLOT, $slot );
 		return true;
 	}
@@ -347,6 +353,11 @@ class SecurityWP_TOTP {
 
 		foreach ( $hashes as $i => $stored ) {
 			if ( hash_equals( (string) $stored, $candidate ) ) {
+				// Same race as the TOTP step: claim the code atomically so two parallel
+				// requests can't both spend it before the meta update lands.
+				if ( ! SecurityWP_Atomic::claim( 'recovery|' . $user_id . '|' . $candidate, 300 ) ) {
+					return false;
+				}
 				unset( $hashes[ $i ] );
 				update_user_meta( $user_id, self::META_RECOVERY, array_values( $hashes ) );
 				do_action( 'secwp_2fa_recovery_used', $user_id, count( $hashes ) );
@@ -423,7 +434,7 @@ class SecurityWP_TOTP {
 
 		try {
 			$plain = sodium_crypto_secretbox_open( $cipher, $nonce, self::key() );
-		} catch ( Exception $e ) {
+		} catch ( Throwable $e ) { // sodium_compat throws TypeError/Error on malformed input, not Exception.
 			return '';
 		}
 		// false here means the salts changed (or the row was tampered with).

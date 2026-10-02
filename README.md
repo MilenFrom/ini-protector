@@ -18,6 +18,7 @@ Optional, defined in `wp-config.php`:
 | Constant | Purpose |
 | --- | --- |
 | `SECWP_TRUSTED_PROXIES` | Comma-separated IPs/CIDRs of your reverse proxy or CDN. Forwarded client-IP headers are honoured **only** when the connection comes from one of these, and `X-Forwarded-For` is read from the trusted end. Without it, client IPs come from the socket peer and cannot be forged. |
+| `SECWP_TRUST_CF_CONNECTING_IP` | Set to `true` to also read `CF-Connecting-IP` from a declared proxy. Only when every entry in `SECWP_TRUSTED_PROXIES` is Cloudflare: other proxies pass the header through as the visitor sent it. Not needed for Cloudflare in general, which also appends the visitor to `X-Forwarded-For`. |
 | `SECWP_TRUST_PROXY` | Legacy boolean form. Still honoured, but it cannot verify who sent the header, so it is limited to public addresses and reported as a warning by Security → Scan. Prefer `SECWP_TRUSTED_PROXIES`. |
 | `SECWP_VULN_API_BASE` | Override the vulnerability database endpoint. |
 

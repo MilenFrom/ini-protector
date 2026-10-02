@@ -126,11 +126,12 @@ class SecurityWP_IP_Block_Admin {
 		$suggested  = $summary['suggested'] ?? array();
 		$blocked    = SecurityWP_IP_Block::all();
 
-		// Don't suggest an IP that is already blocked.
+		// Don't suggest an IP that is already blocked (an expired temp block no longer is).
+		$active    = SecurityWP_IP_Block::active();
 		$suggested = array_values( array_filter(
 			$suggested,
-			static function ( $row ) use ( $blocked ) {
-				return ! isset( $blocked[ (string) ( $row['ip'] ?? '' ) ] );
+			static function ( $row ) use ( $active ) {
+				return ! isset( $active[ (string) ( $row['ip'] ?? '' ) ] );
 			}
 		) );
 

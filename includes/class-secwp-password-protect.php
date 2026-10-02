@@ -124,16 +124,20 @@ class SecurityWP_Password_Protect {
 	}
 
 	private function attempts(): int {
-		return (int) get_transient( $this->attempt_key() );
+		return SecurityWP_Atomic::get( $this->attempt_key() );
 	}
 
 	private function is_locked_out(): bool {
 		return $this->attempts() >= self::MAX_ATTEMPTS;
 	}
 
-	/** Count a wrong guess. The window restarts on each failure, as with login limiting. */
-	private function bump_attempts(): void {
-		set_transient( $this->attempt_key(), $this->attempts() + 1, self::LOCKOUT );
+	/**
+	 * Count a guess before comparing it and return the new total. Counting first, atomically,
+	 * is what stops a burst of parallel guesses all passing the lockout check before any of
+	 * them is recorded. The window restarts on each guess, as with login limiting.
+	 */
+	private function bump_attempts(): int {
+		return SecurityWP_Atomic::incr( $this->attempt_key(), self::LOCKOUT );
 	}
 
 	private function password(): string {
@@ -182,13 +186,13 @@ class SecurityWP_Password_Protect {
 		}
 		// Out of guesses: refuse without comparing, so the lockout cannot be used as
 		// a timing side-channel either.
-		if ( $this->is_locked_out() ) {
+		if ( $this->bump_attempts() > self::MAX_ATTEMPTS ) {
 			$this->locked = true;
 			return;
 		}
 		$submitted = (string) wp_unslash( $_POST[ self::FIELD ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- exact password comparison requires preserving all characters; shape and nonce checked above.
 		if ( hash_equals( $password, $submitted ) ) {
-			delete_transient( $this->attempt_key() );
+			SecurityWP_Atomic::delete( $this->attempt_key() );
 			// Session cookie (expires when the browser closes); httponly; secure when on HTTPS.
 			setcookie( self::COOKIE, $this->expected_cookie(), array(
 				'expires'  => 0,
@@ -204,8 +208,7 @@ class SecurityWP_Password_Protect {
 			exit;
 		}
 		// Wrong password: fall through to the gate, which re-renders with an error.
-		$this->bump_attempts();
-		$this->wrong  = true;
+		$this->wrong  = true; // Already counted above.
 		$this->locked = $this->is_locked_out();
 	}
 

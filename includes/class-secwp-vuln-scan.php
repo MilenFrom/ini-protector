@@ -51,7 +51,9 @@ class SecurityWP_Vuln_Scan {
 	/** Hook the cron callback and lazily heal the schedule to the toggle. */
 	public function register(): void {
 		add_action( self::HOOK, array( __CLASS__, 'run_scan_cron' ) );
-		self::sync_schedule();
+		// On init, like Integrity and Auto-Block: scheduling runs the cron_schedules filter,
+		// and on plugins_loaded that loads translations too early (a notice since WP 6.7).
+		add_action( 'init', array( __CLASS__, 'sync_schedule' ), 11 );
 	}
 
 	/**
@@ -101,15 +103,32 @@ class SecurityWP_Vuln_Scan {
 		$checked   = 0;
 		$truncated = false;
 
+		$unchecked   = array(); // "type:slug" => installed version, for components not checked this run.
+		$not_covered = array(); // "type:slug" => API message, for components the database gave no data on.
+
 		foreach ( $this->components() as $c ) {
-			if ( time() > $deadline ) {
-				$truncated = true;
-				break;
+			$ckey = $c['type'] . ':' . $c['slug'];
+			if ( $truncated || time() > $deadline ) {
+				// Out of time: record what was skipped, so the run reads as incomplete
+				// rather than clean and these components keep their earlier findings.
+				$truncated          = true;
+				$errors[ $ckey ]    = 'time_budget_exceeded';
+				$unchecked[ $ckey ] = $c['version'];
+				continue;
 			}
 			$resp = $this->fetch( $c['type'], $c['slug'], $c['version'], $force );
 
+			if ( is_wp_error( $resp ) && 'api_error' === $resp->get_error_code() ) {
+				// The API answered, with an error instead of data. Not clean, so it is listed
+				// and keeps any earlier findings, but not a failed lookup either: a component
+				// the database does not know would otherwise mark every scan partial forever.
+				$not_covered[ $ckey ] = $resp->get_error_message();
+				$unchecked[ $ckey ]   = $c['version'];
+				continue;
+			}
 			if ( is_wp_error( $resp ) ) {
-				$errors[ $c['type'] . ':' . $c['slug'] ] = $resp->get_error_code();
+				$errors[ $ckey ]    = $resp->get_error_code();
+				$unchecked[ $ckey ] = $c['version'];
 				continue;
 			}
 			++$checked;
@@ -130,24 +149,37 @@ class SecurityWP_Vuln_Scan {
 		}
 
 		// Guard: a run where every lookup failed must NOT wipe a good snapshot.
-		if ( 0 === $checked && ( $errors || $truncated ) ) {
+		if ( 0 === $checked && ( $errors || $truncated || $not_covered ) ) {
 			$prev                = self::get_results();
 			$prev['scan_status'] = 'error';
-			$prev['errors']      = $errors;
+			$prev['errors']      = $errors + array_fill_keys( array_keys( $not_covered ), 'api_error' );
 			$prev['last_error']  = time();
 			update_option( self::OPT_RESULTS, $prev, false );
 			return $prev;
 		}
 
+		// A partial run must not forget what it could not re-check: carry forward the
+		// previous findings of unchecked components (same installed version), so they
+		// stay on the page and in the known set instead of re-alerting as "new" later.
+		if ( $unchecked ) {
+			$prev = self::get_results();
+			foreach ( (array) ( $prev['findings'] ?? array() ) as $f ) {
+				$fkey = (string) ( $f['type'] ?? '' ) . ':' . (string) ( $f['slug'] ?? '' );
+				if ( isset( $unchecked[ $fkey ], $f['fingerprint'] ) && (string) ( $f['installed'] ?? '' ) === $unchecked[ $fkey ] ) {
+					$findings[] = $f;
+				}
+			}
+		}
+
 		$status = ( $errors || $truncated ) ? 'partial' : 'ok';
-		return $this->persist( $findings, $errors, $status );
+		return $this->persist( $findings, $errors, $status, $not_covered );
 	}
 
 	/**
 	 * Write the snapshot, diff against the previous known fingerprints, and fire
 	 * the new-finding email + platform event.
 	 */
-	private function persist( array $findings, array $errors, string $status ): array {
+	private function persist( array $findings, array $errors, string $status, array $not_covered = array() ): array {
 		// De-duplicate by fingerprint (a component can carry the same CVE twice).
 		$by_fp = array();
 		foreach ( $findings as $f ) {
@@ -160,6 +192,7 @@ class SecurityWP_Vuln_Scan {
 			'scanned_at'  => time(),
 			'scan_status' => $status,
 			'errors'      => $errors,
+			'not_covered' => $not_covered,
 			'findings'    => $findings,
 		);
 		update_option( self::OPT_RESULTS, $results, false );
@@ -286,7 +319,10 @@ class SecurityWP_Vuln_Scan {
 			return new WP_Error( 'http_error', $resp->get_error_message() );
 		}
 		$code = (int) wp_remote_retrieve_response_code( $resp );
-		if ( $code >= 500 ) {
+		// Only 200 is an answer, and 404 means "unknown to the database" (handled below).
+		// Anything else (403, 429 rate limiting, 5xx) is a failure even with a JSON body;
+		// caching it as data would read as "no vulnerabilities" for twelve hours.
+		if ( 200 !== $code && 404 !== $code ) {
 			set_transient( $cache_key, 'http_' . $code, HOUR_IN_SECONDS );
 			return new WP_Error( 'http_' . $code );
 		}
@@ -301,6 +337,15 @@ class SecurityWP_Vuln_Scan {
 			}
 			set_transient( $cache_key, 'bad_json', HOUR_IN_SECONDS );
 			return new WP_Error( 'bad_json' );
+		}
+
+		// The API also reports failures in-band, as HTTP 200 with { "error": 1, "message": … }.
+		// That is not "no vulnerabilities" and must not be cached as such. It is returned as
+		// its own code so run_scan() can list the component as not covered, whether the
+		// cause was a passing fault or a component the database does not know.
+		if ( ! empty( $data['error'] ) ) {
+			set_transient( $cache_key, 'api_error', HOUR_IN_SECONDS );
+			return new WP_Error( 'api_error', is_string( $data['message'] ?? null ) ? substr( sanitize_text_field( $data['message'] ), 0, 200 ) : '' );
 		}
 
 		set_transient( $cache_key, $data, self::CACHE_TTL );
@@ -448,6 +493,7 @@ class SecurityWP_Vuln_Scan {
 				'scanned_at'  => 0,
 				'scan_status' => 'never',
 				'errors'      => array(),
+				'not_covered' => array(),
 				'findings'    => array(),
 			)
 		);

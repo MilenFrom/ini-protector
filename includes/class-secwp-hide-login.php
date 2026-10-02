@@ -47,6 +47,11 @@ class SecurityWP_Hide_Login {
 		add_filter( 'logout_url', array( $this, 'filter_login_url' ), 10, 1 );
 		add_filter( 'lostpassword_url', array( $this, 'filter_login_url' ), 10, 1 );
 		add_filter( 'register_url', array( $this, 'filter_login_url' ), 10, 1 );
+
+		// Core redirects a 404 on /login (and /wp-login.php/, /admin, /dashboard) to
+		// wp_login_url() / admin_url(); with the filters above that hands any bot that asks
+		// for /login a 302 straight to the secret slug.
+		remove_action( 'template_redirect', 'wp_redirect_admin_locations', 1000 );
 	}
 
 	/** Never touch non-browser entry points — REST (incl. our channel), AJAX, cron, CLI, XML-RPC. */
@@ -141,20 +146,38 @@ class SecurityWP_Hide_Login {
 			return;
 		}
 
+		// Decide on the script PHP is actually running, never on the URI text: '//wp-login.php'
+		// parses with an empty path, '/wp-login.php/x' is PATH_INFO, and
+		// '/wp-admin/index.php/admin-ajax.php' contains an exempt name, yet each one runs the
+		// real login or admin screen.
+		$script = $this->running_script();
+
 		// 3) Logged-out hit to the default login page → bounce to the redirect target.
-		if ( 'wp-login.php' === $path ) {
-			wp_safe_redirect( $this->redirect_target() );
-			exit;
+		if ( 'wp-login.php' === $script || ( isset( $GLOBALS['pagenow'] ) && 'wp-login.php' === $GLOBALS['pagenow'] ) ) {
+			$this->bounce();
 		}
 
-		// 4) Logged-out hit to wp-admin (but NOT admin-ajax/admin-post, which are exempt above for
-		//    AJAX and handled by core for legit public posts) → bounce instead of revealing login.
-		if ( 0 === strpos( $path, 'wp-admin/' ) || 'wp-admin' === $path ) {
-			if ( false === strpos( $path, 'admin-ajax.php' ) && false === strpos( $path, 'admin-post.php' ) ) {
-				wp_safe_redirect( $this->redirect_target() );
-				exit;
-			}
+		// 4) Logged-out hit to wp-admin (but NOT admin-ajax/admin-post, which serve public
+		//    requests and are not login screens) → bounce instead of revealing the login.
+		if ( is_admin() && ! in_array( $script, array( 'admin-ajax.php', 'admin-post.php' ), true ) ) {
+			$this->bounce();
 		}
+	}
+
+	/** Basename of the PHP file serving this request ('' if unknown). */
+	private function running_script(): string {
+		$file = isset( $_SERVER['SCRIPT_FILENAME'] ) && is_string( $_SERVER['SCRIPT_FILENAME'] ) ? $_SERVER['SCRIPT_FILENAME'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- compared against fixed names only.
+		return strtolower( basename( $file ) );
+	}
+
+	/**
+	 * Send a logged-out visitor to the configured target. wp_redirect(), not wp_safe_redirect():
+	 * the target is set by an administrator and may be an external URL, which wp_safe_redirect()
+	 * would replace with admin_url() — itself bounced here, an endless redirect loop.
+	 */
+	private function bounce(): void {
+		wp_redirect( $this->redirect_target() ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- admin-configured target.
+		exit;
 	}
 
 	// ── URL rewriting ─────────────────────────────────────────────────────────

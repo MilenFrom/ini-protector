@@ -27,9 +27,10 @@
  * request, so for a user with 2FA on, password authentication there is REFUSED
  * rather than waved through — otherwise 2FA would be trivially bypassable by
  * pointing the same stolen password at xmlrpc.php. Application passwords are the
- * supported path for automation: they are per-application, individually
- * revocable, and can only be created from inside an already-2FA-protected
- * session, so they are honoured as-is.
+ * supported path for automation: they are per-application and individually
+ * revocable, so they are honoured as-is. That is only sound because they can
+ * only come from a 2FA session: they are unavailable to an account that must
+ * enrol but has not, and any that exist are revoked when the account enrols.
  *
  * @package INI Protector
  */
@@ -55,8 +56,12 @@ class SecurityWP_2FA {
 	const MAX_ATTEMPTS  = 10;
 	const ATTEMPT_WINDOW = 900;
 
-	/** Set when core authenticated this request with an application password. */
-	private static $via_app_password = false;
+	/**
+	 * ID of the user core authenticated with an application password in this request.
+	 * Scoped to that user: one request (an XML-RPC system.multicall) can authenticate
+	 * several accounts, and only the one that presented an app password may skip 2FA.
+	 */
+	private static $app_password_user_id = 0;
 
 	public function register(): void {
 		// Must be registered even when the feature is off, so it can never be the
@@ -75,6 +80,12 @@ class SecurityWP_2FA {
 		add_action( 'profile_update', array( __CLASS__, 'on_profile_update' ), 10, 2 );
 		add_action( 'secwp_2fa_disabled', array( __CLASS__, 'bump_auth_generation' ) );
 
+		// Application passwords skip the second factor, so they must not be a way around
+		// enrolment: someone holding only a phished password could otherwise create one
+		// before the account enrols and keep API access after it does.
+		add_filter( 'wp_is_application_passwords_available_for_user', array( __CLASS__, 'app_passwords_available' ), 10, 2 );
+		add_action( 'secwp_2fa_enabled', array( __CLASS__, 'revoke_app_passwords' ) );
+
 		// Enrolment UI on the user's own profile and on user-edit screens.
 		add_action( 'show_user_profile', array( __CLASS__, 'render_profile_section' ) );
 		add_action( 'edit_user_profile', array( __CLASS__, 'render_profile_section' ) );
@@ -91,8 +102,45 @@ class SecurityWP_2FA {
 		add_filter( 'manage_users_custom_column', array( __CLASS__, 'users_column_value' ), 10, 3 );
 	}
 
-	public static function flag_app_password(): void {
-		self::$via_app_password = true;
+	public static function flag_app_password( $user = null ): void {
+		self::$app_password_user_id = $user instanceof WP_User ? (int) $user->ID : 0;
+	}
+
+	/**
+	 * No application passwords — creating or using them — for an account that must use 2FA
+	 * but has not enrolled yet. Once enrolled, creating one requires a 2FA session.
+	 */
+	public static function app_passwords_available( $available, $user ) {
+		if ( ! $available || ! $user instanceof WP_User ) {
+			return $available;
+		}
+		if ( self::is_required_for( $user ) && ! SecurityWP_TOTP::is_enabled( $user->ID ) ) {
+			return false;
+		}
+		return $available;
+	}
+
+	/**
+	 * On enrolment, revoke every application password the account already has: each was
+	 * created by a session that never passed a second factor, so none of them can be told
+	 * apart from one an attacker made with the password alone.
+	 */
+	public static function revoke_app_passwords( $user_id ): void {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 || ! class_exists( 'WP_Application_Passwords' ) ) {
+			return;
+		}
+		$existing = WP_Application_Passwords::get_user_application_passwords( $user_id );
+		if ( empty( $existing ) ) {
+			return;
+		}
+		WP_Application_Passwords::delete_all_application_passwords( $user_id );
+		do_action(
+			'secwp_platform_event',
+			'2fa_app_passwords_revoked',
+			sprintf( 'Revoked %d application password(s) on two-factor enrolment', count( $existing ) ),
+			array( 'user_id' => $user_id, 'count' => count( $existing ) )
+		);
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -136,7 +184,7 @@ class SecurityWP_2FA {
 			return $user;
 		}
 		// Application passwords are their own revocable credential — see the class docblock.
-		if ( self::$via_app_password ) {
+		if ( self::$app_password_user_id > 0 && self::$app_password_user_id === (int) $user->ID ) {
 			return $user;
 		}
 		// WP-CLI and cron have no browser to prompt in; WP-CLI is also the documented
@@ -200,7 +248,7 @@ class SecurityWP_2FA {
 		$expires     = $parsed['expires']; // Reused on retry so the window never grows.
 		$redirect_to = isset( $_POST['redirect_to'] ) && is_string( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : '';
 
-		if ( self::attempts( $user->ID ) >= self::MAX_ATTEMPTS ) {
+		if ( self::bump_attempts( $user->ID ) > self::MAX_ATTEMPTS ) {
 			self::show_challenge(
 				$user,
 				(string) $redirect_to,
@@ -225,7 +273,7 @@ class SecurityWP_2FA {
 		}
 
 		if ( ! $ok ) {
-			self::bump_attempts( $user->ID );
+			// Already counted by bump_attempts() above.
 			self::show_challenge( $user, (string) $redirect_to, $remember, __( 'That code was not correct. Codes change every 30 seconds — check your device clock if this keeps happening.', 'ini-protector' ), false, $expires );
 		}
 
@@ -236,6 +284,19 @@ class SecurityWP_2FA {
 		// Second factor satisfied: complete the login exactly as wp_signon would.
 		wp_set_auth_cookie( $user->ID, $remember );
 		do_action( 'wp_login', $user->user_login, $user );
+
+		// The session-expired popup (wp-auth-check) loads the login in an iframe with
+		// interim-login=1 and closes itself when the page reports success. Redirecting
+		// would load wp-admin inside the popup instead. Mirror core's success page.
+		if ( ! empty( $_REQUEST['interim-login'] ) && function_exists( 'login_header' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nonce checked above.
+			$GLOBALS['interim_login'] = 'success'; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- read by login_header() for the success body class.
+			login_header( '', '<p class="message">' . esc_html__( 'You have logged in successfully.', 'ini-protector' ) . '</p>' );
+			echo '</div>';
+			/** This action is documented in wp-login.php */
+			do_action( 'login_footer' );
+			echo '</body></html>';
+			exit;
+		}
 
 		$redirect_to = '' !== (string) $redirect_to ? (string) $redirect_to : admin_url();
 		wp_safe_redirect( $redirect_to );
@@ -276,6 +337,9 @@ class SecurityWP_2FA {
 			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>" />
 			<input type="hidden" name="secwp_token" value="<?php echo esc_attr( $token ); ?>" />
 			<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_to ); ?>" />
+			<?php if ( ! empty( $_REQUEST['interim-login'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- presentation flag only. ?>
+				<input type="hidden" name="interim-login" value="1" />
+			<?php endif; ?>
 			<p class="secwp-2fa-intro">
 				<?php
 				printf(
@@ -434,14 +498,14 @@ class SecurityWP_2FA {
 		return 'secwp_2fa_fail_' . $user_id;
 	}
 
-	private static function attempts( int $user_id ): int {
-		return (int) get_transient( self::attempt_key( $user_id ) );
-	}
-
-	private static function bump_attempts( int $user_id ): void {
-		$n = self::attempts( $user_id ) + 1;
-		set_transient( self::attempt_key( $user_id ), $n, self::ATTEMPT_WINDOW );
-		if ( $n >= self::MAX_ATTEMPTS ) {
+	/**
+	 * Count an attempt before it is checked and return the new total. Reserving first is
+	 * what makes the limit hold under concurrency: checking, then bumping only on a wrong
+	 * code, let every parallel request pass the check before any of them was counted.
+	 */
+	private static function bump_attempts( int $user_id ): int {
+		$n = SecurityWP_Atomic::incr( self::attempt_key( $user_id ), self::ATTEMPT_WINDOW );
+		if ( self::MAX_ATTEMPTS === $n ) {
 			do_action(
 				'secwp_platform_event',
 				'2fa_attempts_exceeded',
@@ -449,10 +513,11 @@ class SecurityWP_2FA {
 				array( 'user_id' => $user_id )
 			);
 		}
+		return $n;
 	}
 
 	private static function clear_attempts( int $user_id ): void {
-		delete_transient( self::attempt_key( $user_id ) );
+		SecurityWP_Atomic::delete( self::attempt_key( $user_id ) );
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -553,6 +618,13 @@ class SecurityWP_2FA {
 				. '</p></div></td></tr>';
 		}
 
+		if ( get_transient( 'secwp_2fa_confirm_error_' . $user->ID ) ) {
+			delete_transient( 'secwp_2fa_confirm_error_' . $user->ID );
+			echo '<tr><th></th><td><div class="notice notice-error inline"><p>'
+				. esc_html__( 'Nothing was changed: turning two-factor authentication off or replacing recovery codes needs your current authenticator code (or a recovery code) in the confirmation box.', 'ini-protector' )
+				. '</p></div></td></tr>';
+		}
+
 		// Freshly issued recovery codes are shown exactly once, right after enrolment.
 		$fresh = get_transient( 'secwp_2fa_codes_' . $user->ID );
 		if ( is_array( $fresh ) && $fresh ) {
@@ -624,6 +696,14 @@ class SecurityWP_2FA {
 				. '</p>';
 		}
 		echo '</td></tr>';
+
+		// Turning it off or replacing the recovery codes needs the acting user's own code.
+		if ( SecurityWP_TOTP::is_enabled( get_current_user_id() ) ) {
+			echo '<tr><th><label for="secwp_2fa_confirm">' . esc_html__( 'Confirm with your code', 'ini-protector' ) . '</label></th><td>';
+			echo '<input type="text" name="secwp_2fa_confirm" id="secwp_2fa_confirm" value="" class="regular-text" size="10" inputmode="numeric" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" />';
+			echo '<p class="description">' . esc_html__( 'Required for either change above: the current code from your authenticator app, or one of your recovery codes.', 'ini-protector' ) . '</p>';
+			echo '</td></tr>';
+		}
 	}
 
 	private static function render_enrolment( WP_User $user, bool $required ): void {
@@ -676,6 +756,9 @@ class SecurityWP_2FA {
 		echo '<input type="text" name="secwp_2fa_code" value="" class="regular-text" size="10" inputmode="numeric" '
 			. 'autocomplete="one-time-code" autocapitalize="off" spellcheck="false" placeholder="' . esc_attr__( '000000', 'ini-protector' ) . '" />';
 		echo '<p class="description">' . esc_html__( 'Two-factor authentication only switches on once a correct code proves the app is set up — a half-finished setup can never lock you out. You will be given recovery codes at that point; keep them somewhere other than your phone.', 'ini-protector' ) . '</p>';
+		if ( class_exists( 'WP_Application_Passwords' ) && WP_Application_Passwords::get_user_application_passwords( $user->ID ) ) {
+			echo '<p class="description"><strong>' . esc_html__( 'Turning this on revokes this account’s existing application passwords.', 'ini-protector' ) . '</strong> ' . esc_html__( 'They were created without a second factor. Create new ones afterwards for any app that still needs one.', 'ini-protector' ) . '</p>';
+		}
 		echo '</td></tr>';
 	}
 
@@ -699,6 +782,30 @@ class SecurityWP_2FA {
 	 * Handle the profile form. Core has already verified the update-user nonce and
 	 * the capability before these hooks fire; we re-check the capability anyway.
 	 */
+	/**
+	 * Has the logged-in user just proved their own second factor (current code or an unused
+	 * recovery code in secwp_2fa_confirm)? True when they have no 2FA to prove. Guesses
+	 * count against the same attempt limit as the login step.
+	 */
+	private static function actor_confirmed(): bool {
+		$actor = get_current_user_id();
+		if ( $actor <= 0 ) {
+			return false;
+		}
+		if ( ! SecurityWP_TOTP::is_enabled( $actor ) ) {
+			return true;
+		}
+		$code = isset( $_POST['secwp_2fa_confirm'] ) && is_string( $_POST['secwp_2fa_confirm'] ) ? sanitize_text_field( wp_unslash( $_POST['secwp_2fa_confirm'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- caller verified the profile nonce.
+		if ( '' === $code || self::bump_attempts( $actor ) > self::MAX_ATTEMPTS ) {
+			return false;
+		}
+		if ( SecurityWP_TOTP::verify_for_user( $actor, $code ) || SecurityWP_TOTP::verify_recovery( $actor, $code ) ) {
+			self::clear_attempts( $actor );
+			return true;
+		}
+		return false;
+	}
+
 	public static function save_profile( int $user_id ): void {
 		if ( ! current_user_can( 'edit_user', $user_id ) ) {
 			return;
@@ -706,9 +813,19 @@ class SecurityWP_2FA {
 		check_admin_referer( 'update-user_' . $user_id );
 		$is_self = ( get_current_user_id() === $user_id );
 
+		$wants_off   = ! empty( $_POST['secwp_2fa_disable'] );
+		$wants_regen = $is_self && ! empty( $_POST['secwp_2fa_regenerate'] ) && SecurityWP_TOTP::is_enabled( $user_id );
+		// Both weaken the account, so a logged-in session alone is not enough: a stolen
+		// cookie or an XSS could otherwise switch the second factor off. The person acting
+		// proves their own second factor, if they have one.
+		if ( ( $wants_off || $wants_regen ) && ! self::actor_confirmed() ) {
+			set_transient( 'secwp_2fa_confirm_error_' . $user_id, 1, MINUTE_IN_SECONDS );
+			return;
+		}
+
 		// Turning it off: allowed for the account holder and for an administrator
 		// who can already edit this user (the in-admin counterpart of the CLI reset).
-		if ( ! empty( $_POST['secwp_2fa_disable'] ) ) {
+		if ( $wants_off ) {
 			SecurityWP_TOTP::disable( $user_id );
 			do_action(
 				'secwp_platform_event',
@@ -724,7 +841,7 @@ class SecurityWP_2FA {
 			return;
 		}
 
-		if ( ! empty( $_POST['secwp_2fa_regenerate'] ) && SecurityWP_TOTP::is_enabled( $user_id ) ) {
+		if ( $wants_regen ) {
 			$codes = SecurityWP_TOTP::generate_recovery_codes( $user_id );
 			set_transient( 'secwp_2fa_codes_' . $user_id, $codes, 5 * MINUTE_IN_SECONDS );
 			return;

@@ -288,9 +288,18 @@ class SecurityWP_Integrity_Alert {
 	 */
 	private static function is_link_local( string $host ): bool {
 		$host = trim( $host, '[]' );
+		// Numeric hosts that aren't a plain dotted quad ('2852039166', '0xa9fea9fe',
+		// '0251.0376.0251.0376', '169.254.43518') are still IPv4 to the resolver, just
+		// spelled so the check below can't read them. No real collector needs one.
+		if ( preg_match( '/^(0x[0-9a-f]+|[0-9]+)(\.(0x[0-9a-f]+|[0-9]+))*$/i', $host )
+			&& ! filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) ) {
+			return true;
+		}
 		if ( ! filter_var( $host, FILTER_VALIDATE_IP ) ) {
 			return false; // A name, not a literal. Resolution is the host's business, not ours.
 		}
+		// '::ffff:169.254.169.254' reaches the same metadata endpoint as the IPv4 form.
+		$host = SecurityWP_Input::normalize_ip( $host );
 		if ( filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) ) {
 			return 0 === strpos( $host, '169.254.' );
 		}

@@ -86,7 +86,7 @@ class SecurityWP_Features {
 			'security_headers'    => array(
 				'cat'    => 'security',
 				'label'  => 'Security headers',
-				'desc'   => 'Send hardening HTTP response headers on every front-end page: anti-clickjacking, MIME-sniffing protection, referrer and browser-feature policy. Each header is independently toggleable. If a header is already set by your server (Caddy/Nginx/Cloudflare) the connector won’t duplicate it.',
+				'desc'   => 'Send hardening HTTP response headers on every front-end page: anti-clickjacking, MIME-sniffing protection, referrer and browser-feature policy. Each header is independently toggleable. A header another plugin already set is left alone. Headers your web server or CDN adds (Caddy/Nginx/Cloudflare) can’t be seen from WordPress, so untick those here to avoid sending them twice.',
 				'fields' => array(
 					'x_frame_options'        => array( 'type' => 'checkbox', 'label' => 'X-Frame-Options', 'default' => true, 'desc' => 'Stop other sites from embedding your pages in a frame/iframe (clickjacking protection).' ),
 					'x_frame_value'          => array(
@@ -195,9 +195,12 @@ class SecurityWP_Features {
 				'desc'   => 'Add a time-based one-time code (TOTP) to sign-in, using any standard authenticator app — Google Authenticator, 1Password, Aegis, Bitwarden. The password is checked first, then the code is asked for before any session is created. Each user turns it on from their own profile; the roles ticked below must. Recovery codes are issued at setup, and “wp secwp 2fa reset <user>” restores access from the shell if a phone is lost.',
 				'fields' => array(
 					'roles' => array(
-						'type'  => 'roles',
-						'label' => 'Roles that must use two-factor authentication',
-						'desc'  => 'Users in a ticked role are sent to their profile to set it up and cannot use the rest of wp-admin until they do. Everyone else may still turn it on voluntarily. Administrators at minimum is the sensible setting.',
+						'type'    => 'roles',
+						// Must match the fallback in SecurityWP_2FA::required_roles(): the form shows
+						// this when nothing is saved, so it has to be what is actually enforced.
+						'default' => array( 'administrator' ),
+						'label'   => 'Roles that must use two-factor authentication',
+						'desc'    => 'Users in a ticked role are sent to their profile to set it up and cannot use the rest of wp-admin until they do. Everyone else may still turn it on voluntarily. Administrators at minimum is the sensible setting.',
 					),
 				),
 			),
@@ -312,6 +315,12 @@ class SecurityWP_Features {
 		$clean   = $current; // Start from existing values; only overwrite submitted fields.
 
 		foreach ( $fields as $fkey => $def ) {
+			// A blank password field means "keep" (see below), so clearing a stored secret is
+			// its own explicit checkbox, cfg[__clear][field].
+			if ( 'password' === $def['type'] && ! empty( $values['__clear'][ $fkey ] ) ) {
+				$clean[ $fkey ] = '';
+				continue;
+			}
 			// An unchecked checkbox submits nothing, so "absent" must mean false — not "unchanged".
 			// (Only do this when the form that owns this field was actually submitted: we detect that
 			// by a hidden marker field cfg[__submitted] so a partial save can't silently clear boxes.)

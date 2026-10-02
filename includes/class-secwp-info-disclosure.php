@@ -23,12 +23,21 @@ class SecurityWP_Info_Disclosure {
 	public function register(): void {
 		// PHP-level guards (server-agnostic): 403 the readme/license + obvious sensitive requests.
 		add_action( 'init', array( $this, 'block_sensitive_requests' ), 0 );
-		// Keep the .htaccess block in sync with the toggle state (Apache only).
-		add_action( 'admin_init', array( $this, 'maybe_sync_htaccess' ) );
+		// The .htaccess sync is hooked from the plugin bootstrap instead (see sync_hook()):
+		// register() only runs while the tweak is on, so the "remove" half never ran here.
+	}
+
+	/**
+	 * Keep the .htaccess block matching the toggle on every admin load, whatever the state.
+	 * Called unconditionally from the bootstrap, so turning the tweak off by any route
+	 * (an options import, WP-CLI, the platform API) still removes the rules.
+	 */
+	public static function sync_hook(): void {
+		add_action( 'admin_init', array( new self(), 'maybe_sync_htaccess' ) );
 	}
 
 	/** True on Apache/LiteSpeed where .htaccess is honored. */
-	private function is_apache(): bool {
+	public static function is_apache(): bool {
 		if ( function_exists( 'apache_get_modules' ) ) {
 			return true;
 		}
@@ -73,14 +82,22 @@ class SecurityWP_Info_Disclosure {
 			'Options -Indexes',
 			'</IfModule>',
 			'<FilesMatch "(?i)(^\.ht|wp-config\.php|\.(bak|backup|old|orig|save|swp|sql|log|sh|ini|conf|env)$|readme\.html|license\.txt|wp-config-sample\.php)">',
+			// Apache 2.4 syntax only where mod_authz_core is loaded (an unknown directive is a
+			// site-wide 500); the 2.2 equivalent otherwise.
+			'<IfModule mod_authz_core.c>',
 			'Require all denied',
+			'</IfModule>',
+			'<IfModule !mod_authz_core.c>',
+			'Order allow,deny',
+			'Deny from all',
+			'</IfModule>',
 			'</FilesMatch>',
 		);
 	}
 
 	/** Add or remove the .htaccess block to match the current on/off state (Apache only). */
 	public function maybe_sync_htaccess(): void {
-		if ( ! $this->is_apache() ) {
+		if ( ! self::is_apache() ) {
 			return;
 		}
 		require_once ABSPATH . 'wp-admin/includes/misc.php';
@@ -94,9 +111,16 @@ class SecurityWP_Info_Disclosure {
 			return;
 		}
 
-		$on    = SecurityWP_Features::is_on( 'prevent_info_disclosure' );
-		$rules = $on ? self::htaccess_rules() : array();
-		insert_with_markers( $htaccess, self::MARKER, $rules );
+		$on = SecurityWP_Features::is_on( 'prevent_info_disclosure' );
+		if ( ! $on ) {
+			// Only touch the file to remove a block we wrote; otherwise insert_with_markers()
+			// would add an empty marker pair to every site that never enabled the tweak.
+			$contents = file_exists( $htaccess ) ? (string) file_get_contents( $htaccess ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			if ( false === strpos( $contents, '# BEGIN ' . self::MARKER ) ) {
+				return;
+			}
+		}
+		insert_with_markers( $htaccess, self::MARKER, $on ? self::htaccess_rules() : array() );
 	}
 
 	/** Remove our .htaccess block (called on uninstall/disable cleanup). */

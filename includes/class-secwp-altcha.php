@@ -28,6 +28,9 @@ class SecurityWP_Altcha {
 		add_action( 'register_form', array( $this, 'render' ) );       // registration
 		add_action( 'lostpassword_form', array( $this, 'render' ) );   // lost password
 		add_action( 'login_enqueue_scripts', array( $this, 'enqueue' ) );
+		// Front-end wp_login_form() posts the same 'log' field to wp-login.php and is verified
+		// by verify_login(), so it needs the widget too or every such login fails.
+		add_filter( 'login_form_middle', array( $this, 'render_in_login_form' ), 10, 1 );
 
 		// Verify on submit. authenticate runs for login; the others have dedicated hooks.
 		add_filter( 'authenticate', array( $this, 'verify_login' ), 25, 1 );
@@ -115,12 +118,8 @@ class SecurityWP_Altcha {
 			return false;
 		}
 		// 4) Single-use: a given solution (challenge hash) can be accepted once, within MAX_AGE.
-		$used_key = 'secwp_altcha_' . md5( (string) $data['challenge'] );
-		if ( get_transient( $used_key ) ) {
-			return false;
-		}
-		set_transient( $used_key, 1, self::MAX_AGE );
-		return true;
+		// Atomic claim: a get-then-set let parallel requests replay one solution.
+		return SecurityWP_Atomic::claim( 'altcha|' . md5( (string) $data['challenge'] ), self::MAX_AGE );
 	}
 
 	private function solution_from_post(): string {
@@ -153,10 +152,20 @@ class SecurityWP_Altcha {
 	}
 
 	public function render(): void {
+		echo $this->widget_html(); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped in widget_html().
+	}
+
+	/** wp_login_form() (front end): append the widget and load its script in the footer. */
+	public function render_in_login_form( $html ) {
+		$this->enqueue();
+		return (string) $html . $this->widget_html();
+	}
+
+	private function widget_html(): string {
 		$c = $this->make_challenge();
 		// The widget POSTs the solved payload under our field name. challengejson is the
 		// self-contained challenge so no callback URL is needed.
-		printf(
+		return sprintf(
 			'<div class="secwp-altcha"><altcha-widget name="%s" challengejson="%s"></altcha-widget></div>',
 			esc_attr( self::FIELD ),
 			esc_attr( wp_json_encode( $c ) )
@@ -189,6 +198,11 @@ class SecurityWP_Altcha {
 
 	/** Lost password: attach an error so WP halts the reset. */
 	public function verify_lostpassword( $errors ): void {
+		// Since WP 5.7 an administrator's "Send password reset" (Users list, user-edit) also
+		// runs retrieve_password() and this hook, with no widget on the page to solve.
+		if ( is_user_logged_in() && current_user_can( 'edit_users' ) ) {
+			return;
+		}
 		if ( ! $this->check( $this->solution_from_post() ) && is_wp_error( $errors ) ) {
 			$errors->add( 'secwp_altcha', __( '<strong>Error:</strong> Please complete the verification challenge.', 'ini-protector' ) );
 		}

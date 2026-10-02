@@ -112,6 +112,156 @@ foreach ( array( new SecurityWP_Vuln_Admin(), new SecurityWP_Integrity_Admin(), 
 	ob_start(); is_string( $notice ) ? $notice::enrolment_notice() : $notice->notice(); $html = ob_get_clean();
 	inipr_assert( '' === $html, 'unrelated editor screen receives no security notice' );
 }
+// Multi-line settings render as a <textarea>: a text input drops the line breaks, and the
+// next save merged the allowlist into one invalid entry that was then discarded.
+ob_start();
+inipr_private( new SecurityWP_Admin(), 'render_field', 'autoblock', 'allowlist', array( 'type' => 'textarea', 'label' => 'Allowlist' ), "203.0.113.0/24\n2001:db8::/32" );
+$html = ob_get_clean();
+inipr_assert( false !== strpos( $html, '<textarea' ) && false !== strpos( $html, "203.0.113.0/24\n2001:db8::/32" ), 'textarea field keeps one entry per line' );
+
+// Expired temp blocks must not fill the blocklist and make every new block fail.
+$saved_blocks = get_option( SecurityWP_IP_Block::OPTION, array() );
+$expired      = array();
+for ( $i = 0; $i < SecurityWP_IP_Block::MAX; $i++ ) {
+	$expired[ '10.0.' . intdiv( $i, 250 ) . '.' . ( $i % 250 ) ] = array( 'reason' => 'test', 'time' => 1, 'expires' => time() - 60, 'source' => SecurityWP_IP_Block::SOURCE_AUTO );
+}
+update_option( SecurityWP_IP_Block::OPTION, $expired, false );
+inipr_assert( array() === SecurityWP_IP_Block::active(), 'expired temp blocks are not active' );
+inipr_assert( true === SecurityWP_IP_Block::block( '203.0.113.250', 'test' ), 'new block accepted when only expired entries remain' );
+inipr_assert( array( '203.0.113.250' ) === array_keys( SecurityWP_IP_Block::all() ), 'expired entries pruned on write' );
+update_option( SecurityWP_IP_Block::OPTION, $saved_blocks, false );
+
+// One canonical spelling per address, so blocks and allowlist entries match what the server reports.
+inipr_assert( '2001:db8::1' === SecurityWP_Input::normalize_ip( '2001:DB8:0::1' ), 'IPv6 normalized to canonical form' );
+inipr_assert( '192.0.2.1' === SecurityWP_Input::normalize_ip( '::ffff:192.0.2.1' ), 'IPv4-mapped address unwrapped' );
+inipr_assert( SecurityWP_Autoblock::ip_matches( '::ffff:203.0.113.5', '203.0.113.0/24' ), 'IPv4-mapped address matches IPv4 CIDR' );
+foreach ( array( '10.0.0.5', '192.168.1.1', '127.0.0.1', 'fd00::1' ) as $internal ) {
+	inipr_assert( SecurityWP_Autoblock::is_exempt( $internal ), 'internal address never auto-blocked: ' . $internal );
+}
+
+// Webhook metadata guard sees through alternate spellings of 169.254.169.254.
+foreach ( array( '[::ffff:169.254.169.254]', '2852039166', '0xa9fea9fe', '169.254.43518' ) as $host ) {
+	inipr_assert( inipr_private( 'SecurityWP_Integrity_Alert', 'is_link_local', $host ), 'webhook refuses metadata host spelled ' . $host );
+}
+inipr_assert( ! inipr_private( 'SecurityWP_Integrity_Alert', 'is_link_local', '10.0.0.5' ), 'webhook still allows a private collector' );
+
+// Traffic monitor reads the query string for enumeration probes.
+$assess = inipr_private( 'SecurityWP_Traffic_Log', 'assess', 'GET', '/', 200, 'ua', 'author=2' );
+inipr_assert( 'user_enum' === $assess[1], '?author=N flagged as user enumeration' );
+$assess = inipr_private( 'SecurityWP_Traffic_Log', 'assess', 'POST', '/xmlrpc.php', 200, 'ua' );
+inipr_assert( 'xmlrpc' === $assess[1], 'xmlrpc.php gets its own reason' );
+
+// A deny-only .htaccess in uploads (WooCommerce) is not reported as executable.
+$deny_dir = wp_get_upload_dir()['basedir'] . '/inipr-deny-test';
+wp_mkdir_p( $deny_dir );
+file_put_contents( $deny_dir . '/.htaccess', "deny from all\n" );
+inipr_assert( ! inipr_private( 'SecurityWP_Security_Scan', 'php_in_dir', wp_get_upload_dir()['basedir'], 200 ), 'deny-only .htaccess in uploads not flagged' );
+file_put_contents( $deny_dir . '/.htaccess', "AddHandler application/x-httpd-php .jpg\n" );
+inipr_assert( (bool) inipr_private( 'SecurityWP_Security_Scan', 'php_in_dir', wp_get_upload_dir()['basedir'], 200 ), 'handler-changing .htaccess in uploads still flagged' );
+unlink( $deny_dir . '/.htaccess' );
+rmdir( $deny_dir );
+
+// The 2FA roles form shows what is enforced when nothing has been saved.
+$roles_def = SecurityWP_Features::catalog()[ SecurityWP_2FA::FEATURE ]['fields']['roles'];
+inipr_assert( array( 'administrator' ) === $roles_def['default'] && SecurityWP_2FA::required_roles() === $roles_def['default'], '2FA roles form default matches enforcement' );
+
+// No application passwords for an account that must enrol in 2FA but has not.
+inipr_assert( ! SecurityWP_TOTP::is_enabled( 1 ) && false === SecurityWP_2FA::app_passwords_available( true, get_userdata( 1 ) ), 'app passwords unavailable before required 2FA enrolment' );
+
+// A rate-limited or forbidden API answer is an error, not "no vulnerabilities".
+$limited = static function () {
+	return array( 'response' => array( 'code' => 429 ), 'body' => '{"error":1,"data":null}', 'headers' => array(), 'cookies' => array() );
+};
+add_filter( 'pre_http_request', $limited );
+inipr_assert( is_wp_error( inipr_private( new SecurityWP_Vuln_Scan(), 'fetch', 'plugin', 'inipr-rate-limited', '1.0', true ) ), 'HTTP 429 from the vulnerability API is an error' );
+remove_filter( 'pre_http_request', $limited );
+delete_transient( 'secwp_vuln_' . md5( 'plugin|inipr-rate-limited|1.0' ) );
+$in_band = static function () {
+	return array( 'response' => array( 'code' => 200 ), 'body' => '{"error":1,"message":"Not found","data":null}', 'headers' => array(), 'cookies' => array() );
+};
+add_filter( 'pre_http_request', $in_band );
+$resp = inipr_private( new SecurityWP_Vuln_Scan(), 'fetch', 'plugin', 'inipr-in-band', '1.0', true );
+inipr_assert( is_wp_error( $resp ) && 'api_error' === $resp->get_error_code(), 'in-band API error is not cached as "no vulnerabilities"' );
+remove_filter( 'pre_http_request', $in_band );
+delete_transient( 'secwp_vuln_' . md5( 'plugin|inipr-in-band|1.0' ) );
+
+// Turning 2FA off needs the acting user's own code, not just a logged-in session.
+wp_set_current_user( 1 );
+$tf_secret = SecurityWP_TOTP::generate_secret();
+SecurityWP_TOTP::set_secret( 1, $tf_secret );
+SecurityWP_TOTP::confirm( 1, SecurityWP_TOTP::code_at( $tf_secret, SecurityWP_TOTP::slot() ) );
+inipr_assert( SecurityWP_TOTP::is_enabled( 1 ), '2FA enrolled for the off-switch test' );
+$_POST = $_REQUEST = array( '_wpnonce' => wp_create_nonce( 'update-user_1' ), 'secwp_2fa_disable' => '1' );
+SecurityWP_2FA::save_profile( 1 );
+inipr_assert( SecurityWP_TOTP::is_enabled( 1 ), '2FA not turned off without a confirmation code' );
+$_POST['secwp_2fa_confirm'] = $_REQUEST['secwp_2fa_confirm'] = '000000' === SecurityWP_TOTP::code_at( $tf_secret, SecurityWP_TOTP::slot() + 1 ) ? '111111' : '000000';
+SecurityWP_2FA::save_profile( 1 );
+inipr_assert( SecurityWP_TOTP::is_enabled( 1 ), '2FA not turned off with a wrong code' );
+$_POST['secwp_2fa_confirm'] = $_REQUEST['secwp_2fa_confirm'] = SecurityWP_TOTP::code_at( $tf_secret, SecurityWP_TOTP::slot() + 1 );
+SecurityWP_2FA::save_profile( 1 );
+inipr_assert( ! SecurityWP_TOTP::is_enabled( 1 ), '2FA turned off with the current code' );
+$_POST = $_REQUEST = array();
+
+// Single-use claims and counters are atomic and behave as documented.
+inipr_assert( SecurityWP_Atomic::claim( 'inipr-test', 60 ) && ! SecurityWP_Atomic::claim( 'inipr-test', 60 ), 'claim succeeds once' );
+SecurityWP_Atomic::release( 'inipr-test' );
+inipr_assert( SecurityWP_Atomic::claim( 'inipr-test', 60 ), 'released claim can be taken again' );
+SecurityWP_Atomic::release( 'inipr-test' );
+inipr_assert( 1 === SecurityWP_Atomic::incr( 'inipr-ctr', 60 ) && 2 === SecurityWP_Atomic::incr( 'inipr-ctr', 60 ) && 2 === SecurityWP_Atomic::get( 'inipr-ctr' ), 'atomic counter increments' );
+SecurityWP_Atomic::delete( 'inipr-ctr' );
+inipr_assert( 0 === SecurityWP_Atomic::get( 'inipr-ctr' ), 'atomic counter deleted' );
+
+// The app-password 2FA skip belongs to the user who presented it, not the whole request
+// (one XML-RPC system.multicall can authenticate several accounts).
+SecurityWP_2FA::flag_app_password( get_userdata( 1 ) );
+$scope = new ReflectionProperty( 'SecurityWP_2FA', 'app_password_user_id' );
+$scope->setAccessible( true );
+inipr_assert( 1 === $scope->getValue(), 'app-password 2FA skip is scoped to one user ID' );
+$scope->setValue( null, 0 );
+
+// A partial vulnerability scan keeps the findings it could not re-check and does not re-alert.
+$vuln_down = false;
+$vuln_http = static function ( $pre, $args, $url ) use ( &$vuln_down ) {
+	if ( false === strpos( $url, '/plugin/inipr-vuln-fixture/' ) ) {
+		return array( 'response' => array( 'code' => 200 ), 'body' => '{"data":{"vulnerability":null}}', 'headers' => array(), 'cookies' => array() );
+	}
+	if ( $vuln_down ) {
+		return new WP_Error( 'http_request_failed', 'down' );
+	}
+	$body = '{"data":{"vulnerability":[{"name":"Fixture XSS","source":[{"id":"INIPR-1"}],"operator":{"max_version":"9.0","max_operator":"lt"}}]}}';
+	return array( 'response' => array( 'code' => 200 ), 'body' => $body, 'headers' => array(), 'cookies' => array() );
+};
+$vuln_fixture = WP_PLUGIN_DIR . '/inipr-vuln-fixture';
+wp_mkdir_p( $vuln_fixture );
+file_put_contents( $vuln_fixture . '/inipr-vuln-fixture.php', "<?php\n/**\n * Plugin Name: INIPR Vuln Fixture\n * Version: 1.0\n */\n" );
+wp_clean_plugins_cache( false );
+add_filter( 'pre_http_request', $vuln_http, 10, 3 );
+$vuln_alerts = 0;
+$count_alert = static function ( $type ) use ( &$vuln_alerts ) {
+	if ( 'vuln_new' === $type ) {
+		$vuln_alerts++;
+	}
+};
+add_action( 'secwp_platform_event', $count_alert );
+delete_option( SecurityWP_Vuln_Scan::OPT_KNOWN );
+$scan = new SecurityWP_Vuln_Scan();
+$scan->run_scan( array( 'force' => true ) );
+inipr_assert( 1 === $vuln_alerts, 'new vulnerability finding alerted once' );
+$vuln_down   = true;
+$r           = $scan->run_scan( array( 'force' => true ) );
+$kept        = array_filter( $r['findings'], static function ( $f ) { return 'inipr-vuln-fixture' === $f['slug']; } );
+inipr_assert( 'partial' === $r['scan_status'] && 1 === count( $kept ), 'partial vulnerability scan keeps unchecked findings' );
+$vuln_down = false;
+$scan->run_scan( array( 'force' => true ) );
+inipr_assert( 1 === $vuln_alerts, 'finding is not re-alerted after a partial scan' );
+remove_filter( 'pre_http_request', $vuln_http, 10 );
+remove_action( 'secwp_platform_event', $count_alert );
+unlink( $vuln_fixture . '/inipr-vuln-fixture.php' );
+rmdir( $vuln_fixture );
+wp_clean_plugins_cache( false );
+delete_option( SecurityWP_Vuln_Scan::OPT_RESULTS );
+delete_option( SecurityWP_Vuln_Scan::OPT_KNOWN );
+
 update_option( 'secwp_features', array() );
 update_option( 'secwp_features_config', array() );
 $_SERVER['REQUEST_URI'] = '/';

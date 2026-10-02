@@ -46,6 +46,12 @@ class SecurityWP_Integrity {
 	const OPT_RESULTS = 'secwp_integrity_results';
 	/** Rolling recent-change log (bounded), so the admin page shows history, not just the last run. */
 	const OPT_HISTORY = 'secwp_integrity_history';
+
+	/** Baseline rows read per query. */
+	const READ_PAGE = 5000;
+
+	/** Seconds a scan holds its lock (released on completion; this only bounds a crashed run). */
+	const SCAN_LOCK_TTL = 3600;
 	/** Monotonic report sequence — a gap in the mailbox means a report was suppressed. */
 	const OPT_SEQ = 'secwp_integrity_seq';
 	/** Digest of the state the stored baseline represents (chain anchor). */
@@ -216,6 +222,12 @@ class SecurityWP_Integrity {
 		if ( ! SecurityWP_Features::is_on( self::FEATURE ) ) {
 			return;
 		}
+		// Same headroom the admin "Scan now" asks for: a full-tree hash can outlive the
+		// default limits, and a scan killed mid-run persists nothing and alerts no one.
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+		wp_raise_memory_limit( 'cron' );
 		( new self() )->run_scan();
 	}
 
@@ -410,12 +422,35 @@ class SecurityWP_Integrity {
 	}
 
 	/**
+	 * The path as the path rules (exclusions, media prefixes, critical locations) see it.
+	 *
+	 * Those rules are written as 'wp-content/…'. When WP_CONTENT_DIR lives outside ABSPATH
+	 * (Bedrock and similar layouts) relative_path() leaves its files absolute, so no rule
+	 * matched: uploads were hashed in full, a .php in uploads or a mu-plugin change was not
+	 * critical, and the admin's exclusions were ignored. Map that directory to 'wp-content/'
+	 * here. The stored baseline path is unchanged, so existing baselines stay valid.
+	 *
+	 * @param string $path Absolute path, or a path already returned by relative_path().
+	 */
+	public function rule_path( string $path ): string {
+		$path = str_replace( '\\', '/', $path );
+		if ( defined( 'WP_CONTENT_DIR' ) ) {
+			$content = untrailingslashit( str_replace( '\\', '/', WP_CONTENT_DIR ) ) . '/';
+			if ( '/' !== $content && 0 === strpos( $path, $content ) ) {
+				return 'wp-content/' . substr( $path, strlen( $content ) );
+			}
+		}
+		return $this->relative_path( $path );
+	}
+
+	/**
 	 * Is this a path where a change is very likely to matter? Drives the "critical"
 	 * flag that sorts the report and leads the email. Derived from where real
 	 * WordPress compromises land: core directories, wp-config, mu-plugins,
 	 * .htaccess, theme function files, and anything at the web root.
 	 */
 	public function is_critical( string $rel ): bool {
+		$rel  = $this->rule_path( $rel );
 		$base = strtolower( basename( $rel ) );
 
 		if ( 'wp-config.php' === $base || '.htaccess' === $base || '.user.ini' === $base ) {
@@ -499,7 +534,7 @@ class SecurityWP_Integrity {
 					if ( isset( $dirnames[ $current->getFilename() ] ) ) {
 						return false;
 					}
-					$rel = $this->relative_path( $current->getPathname() );
+					$rel = $this->rule_path( $current->getPathname() );
 					foreach ( $blind as $p ) {
 						if ( $rel === $p || 0 === strpos( $rel . '/', $p . '/' ) ) {
 							return false;
@@ -560,7 +595,7 @@ class SecurityWP_Integrity {
 
 	/** Is this absolute path inside one of the given ABSPATH-relative prefixes? */
 	private function under_prefix( string $abs, array $prefixes ): bool {
-		$rel = $this->relative_path( $abs );
+		$rel = $this->rule_path( $abs );
 		foreach ( $prefixes as $p ) {
 			if ( $rel === $p || 0 === strpos( $rel, $p . '/' ) ) {
 				return true;
@@ -596,11 +631,21 @@ class SecurityWP_Integrity {
 		$table = self::table_name();
 		$out   = array();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
-		$rows = $wpdb->get_results( "SELECT path_hash, hash, size, mtime, path FROM {$table}", ARRAY_N );
-		foreach ( (array) $rows as $r ) {
-			$out[ $r[0] ] = $r[1] . self::SEP . $r[2] . self::SEP . $r[3] . self::SEP . $r[4];
-		}
+		// In pages, walking the primary key. One get_results() over the whole table held
+		// every row twice (wpdb's own last_result objects plus our array) on top of the
+		// current scan: at the 200k-file cap that alone could pass a cron memory limit.
+		$after = '';
+		do {
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT path_hash, hash, size, mtime, path FROM {$table} WHERE path_hash > %s ORDER BY path_hash LIMIT %d", $after, self::READ_PAGE ), ARRAY_N );
+			$wpdb->flush(); // Drop wpdb's copy of the page.
+			$count = is_array( $rows ) ? count( $rows ) : 0;
+			foreach ( (array) $rows as $r ) {
+				$out[ $r[0] ] = $r[1] . self::SEP . $r[2] . self::SEP . $r[3] . self::SEP . $r[4];
+				$after        = $r[0];
+			}
+			unset( $rows );
+		} while ( self::READ_PAGE === $count );
 		return $out;
 	}
 
@@ -632,6 +677,22 @@ class SecurityWP_Integrity {
 	 * @return array The report.
 	 */
 	public function run_scan( array $args = array() ): array {
+		// One scan at a time. "Scan now", cron and WP-CLI can otherwise overlap: both read
+		// the same baseline, both alert on the same changes under the same sequence number,
+		// and both write. The lock outlives any sane scan; if a run dies it frees itself.
+		if ( ! SecurityWP_Atomic::claim( 'integrity_scan', self::SCAN_LOCK_TTL ) ) {
+			$busy           = self::get_results();
+			$busy['status'] = 'busy';
+			return $busy;
+		}
+		try {
+			return $this->run_scan_locked( $args );
+		} finally {
+			SecurityWP_Atomic::release( 'integrity_scan' );
+		}
+	}
+
+	private function run_scan_locked( array $args ): array {
 		$started       = microtime( true );
 		$force_baseline = ! empty( $args['baseline'] );
 		$notify         = ! isset( $args['notify'] ) || (bool) $args['notify'];
@@ -707,8 +768,14 @@ class SecurityWP_Integrity {
 			|| empty( $report['alert']['configured'] )
 			|| ! empty( $report['alert']['delivered'] );
 		if ( $adopt ) {
-			$this->persist( $baseline, $current );
-			update_option( self::OPT_DIGEST, $digest, false );
+			if ( $this->persist( $baseline, $current ) ) {
+				update_option( self::OPT_DIGEST, $digest, false );
+			} else {
+				// Part of the baseline was not written. Keep the old digest so the chain
+				// stays honest, and say so instead of reporting a clean adoption.
+				$report['status']   = 'persist_failed';
+				$report['db_error'] = (string) $GLOBALS['wpdb']->last_error;
+			}
 		} else {
 			$report['status'] = 'alert_failed';
 		}
@@ -717,7 +784,7 @@ class SecurityWP_Integrity {
 		update_option( self::OPT_RESULTS, $report, false );
 
 		if ( $changes ) {
-			$this->push_history( $changes, $seq );
+			$this->push_history( $changes, $seq, $adopt );
 			do_action(
 				'secwp_platform_event',
 				'integrity_change',
@@ -838,35 +905,61 @@ class SecurityWP_Integrity {
 	 * Write the observed state to the baseline table: upsert everything present,
 	 * delete rows for files that are gone.
 	 */
-	private function persist( array $baseline, array $current ): void {
+	/**
+	 * The path as stored in the baseline's display column: valid UTF-8, at most 512 bytes.
+	 *
+	 * wpdb refuses a whole query that contains bytes invalid for the table charset, so one
+	 * file named in Latin-1 (or a multibyte name cut mid-character by a byte-wise substr)
+	 * used to sink its entire 200-row write: those files were never baselined and came
+	 * back as NEW on every scan. Rows are keyed on a hash of the raw path, so diffing is
+	 * unaffected; only the displayed name loses the undecodable bytes.
+	 */
+	private static function storable_path( string $path ): string {
+		if ( function_exists( 'mb_convert_encoding' ) && function_exists( 'mb_strcut' ) ) {
+			$path = mb_convert_encoding( $path, 'UTF-8', 'UTF-8' ); // Invalid sequences become '?'.
+			return mb_strcut( $path, 0, 512, 'UTF-8' );
+		}
+		$path = wp_check_invalid_utf8( $path, true );
+		$cut  = substr( $path, 0, 512 );
+		return '' !== wp_check_invalid_utf8( $cut ) ? $cut : wp_check_invalid_utf8( substr( $cut, 0, 509 ), true );
+	}
+
+	/** @return bool False if any write failed; the caller must then not adopt the new state. */
+	private function persist( array $baseline, array $current ): bool {
 		global $wpdb;
 		$table = self::table_name();
 		$now   = time();
+		$ok    = true;
 
 		$write = array();
 		foreach ( $current as $ph => $packed ) {
-			if ( isset( $baseline[ $ph ] ) && $baseline[ $ph ] === $packed ) {
+			list( $hash, $size, $mtime, $path ) = array_pad( explode( self::SEP, $packed, 4 ), 4, '' );
+			$row = array( $hash, (int) $size, (int) $mtime, self::storable_path( $path ) );
+			// Compare in stored form, or a path that had to be cleaned would differ every run.
+			if ( isset( $baseline[ $ph ] ) && $baseline[ $ph ] === implode( self::SEP, $row ) ) {
 				continue; // Unchanged, including size/mtime — nothing to write.
 			}
-			$write[ $ph ] = $packed;
+			$write[ $ph ] = $row;
 		}
 
 		foreach ( array_chunk( $write, self::WRITE_CHUNK, true ) as $chunk ) {
 			$values = array();
 			$params = array();
-			foreach ( $chunk as $ph => $packed ) {
-				list( $hash, $size, $mtime, $path ) = array_pad( explode( self::SEP, $packed, 4 ), 4, '' );
+			foreach ( $chunk as $ph => $row ) {
+				list( $hash, $size, $mtime, $path ) = $row;
 				// The path column is capped, but the row is keyed on a hash of the FULL
 				// path, so a very long path is still diffed correctly — only its
 				// display is shortened.
 				$values[] = '(%s,%s,%s,%d,%d,%d,%d)';
-				array_push( $params, $ph, substr( $path, 0, 512 ), $hash, (int) $size, (int) $mtime, $now, $now );
+				array_push( $params, $ph, $path, $hash, $size, $mtime, $now, $now );
 			}
 			$sql = "INSERT INTO {$table} (path_hash, path, hash, size, mtime, first_seen, updated_at) VALUES "
 				. implode( ',', $values )
 				. ' ON DUPLICATE KEY UPDATE path=VALUES(path), hash=VALUES(hash), size=VALUES(size), mtime=VALUES(mtime), updated_at=VALUES(updated_at)';
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
-			$wpdb->query( $wpdb->prepare( $sql, $params ) );
+			if ( false === $wpdb->query( $wpdb->prepare( $sql, $params ) ) ) {
+				$ok = false;
+			}
 		}
 
 		$gone = array_keys( array_diff_key( $baseline, $current ) );
@@ -874,18 +967,43 @@ class SecurityWP_Integrity {
 			$in  = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
 			$sql = "DELETE FROM {$table} WHERE path_hash IN ({$in})";
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
-			$wpdb->query( $wpdb->prepare( $sql, $chunk ) );
+			if ( false === $wpdb->query( $wpdb->prepare( $sql, $chunk ) ) ) {
+				$ok = false;
+			}
 		}
+		return $ok;
 	}
 
 	/** Append to the bounded rolling history (newest first). */
-	private function push_history( array $changes, int $seq ): void {
+	/**
+	 * Record changes in the history log.
+	 *
+	 * While every alert channel keeps failing, the baseline is not adopted and the same
+	 * changes are reported on every run. They are recorded once: entries from such a run
+	 * are marked pending, and a later run skips changes already pending. Adoption clears
+	 * the marks, so the same change happening again later is recorded again.
+	 */
+	private function push_history( array $changes, int $seq, bool $adopted = true ): void {
 		$history = (array) get_option( self::OPT_HISTORY, array() );
 		$now     = time();
 		$add     = array();
 
+		$pending = array();
+		foreach ( $history as $i => $entry ) {
+			if ( is_array( $entry ) && ! empty( $entry['pending'] ) ) {
+				$pending[ (string) ( $entry['key'] ?? '' ) ] = true;
+				if ( $adopted ) {
+					unset( $history[ $i ]['pending'] );
+				}
+			}
+		}
+
 		foreach ( array_slice( $changes, 0, self::HISTORY_MAX ) as $ch ) {
-			$add[] = array(
+			$key = $ch['state'] . '|' . $ch['path'] . '|' . ( '' !== (string) ( $ch['hash'] ?? '' ) ? $ch['hash'] : (string) ( $ch['old_hash'] ?? '' ) );
+			if ( isset( $pending[ $key ] ) ) {
+				continue; // Already recorded by an earlier run whose alert failed.
+			}
+			$row = array(
 				'seq'       => $seq,
 				'at'        => $now,
 				'state'     => $ch['state'],
@@ -893,9 +1011,14 @@ class SecurityWP_Integrity {
 				'critical'  => ! empty( $ch['critical'] ),
 				'timestomp' => ! empty( $ch['timestomp'] ),
 			);
+			if ( ! $adopted ) {
+				$row['pending'] = true;
+				$row['key']     = $key;
+			}
+			$add[] = $row;
 		}
 
-		$history = array_slice( array_merge( $add, $history ), 0, self::HISTORY_MAX );
+		$history = array_slice( array_merge( $add, array_values( $history ) ), 0, self::HISTORY_MAX );
 		update_option( self::OPT_HISTORY, $history, false );
 	}
 

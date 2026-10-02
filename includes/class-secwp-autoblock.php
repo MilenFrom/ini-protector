@@ -144,6 +144,12 @@ class SecurityWP_Autoblock {
 
 		$this->decay();
 
+		// With the traffic monitor off nothing new is logged, so the table holds only what
+		// was recorded before. Blocking on that would act on visits up to a day old.
+		if ( ! SecurityWP_Features::is_on( 'traffic_log' ) ) {
+			return $out;
+		}
+
 		$summary    = SecurityWP_Traffic_Log::summary( self::EVAL_HOURS, 100 );
 		$candidates = $summary['suggested'] ?? array();
 		if ( empty( $candidates ) ) {
@@ -152,7 +158,7 @@ class SecurityWP_Autoblock {
 
 		$state    = self::state();
 		$enforce  = self::is_enforcing();
-		$changed  = false;
+		$touched  = array();
 
 		foreach ( $candidates as $row ) {
 			$ip  = (string) ( $row['ip'] ?? '' );
@@ -172,6 +178,17 @@ class SecurityWP_Autoblock {
 				continue;
 			}
 
+			// Judge an IP blocked within this window only on what it did since that block;
+			// otherwise the hits that earned it are counted again once it expires.
+			$last_block = (int) ( $state[ $ip ]['last_block_at'] ?? 0 );
+			if ( $last_block > time() - self::EVAL_HOURS * HOUR_IN_SECONDS ) {
+				$fresh = SecurityWP_Traffic_Log::suggestion_since( $ip, $last_block );
+				if ( null === $fresh ) {
+					continue;
+				}
+				$why = (string) ( $fresh['reason'] ?? $why );
+			}
+
 			if ( ! $enforce ) {
 				// Suggest-only: decide nothing persistent. The IP Block page already
 				// shows this candidate (same suggested[] source); leave it for Apply.
@@ -182,12 +199,12 @@ class SecurityWP_Autoblock {
 			if ( is_wp_error( $res ) ) {
 				continue; // e.g. own IP / list full — skip, never fatal.
 			}
-			$changed = true;
+			$touched[] = $ip;
 			$out['applied']++;
 		}
 
-		if ( $changed ) {
-			self::save_state( $state );
+		if ( $touched ) {
+			self::save_state( $state, $touched );
 		}
 		return $out;
 	}
@@ -229,7 +246,7 @@ class SecurityWP_Autoblock {
 
 		$state[ $ip ] = array( 'level' => $new_level, 'last_block_at' => time() );
 		if ( $own_state ) {
-			self::save_state( $state );
+			self::save_state( $state, array( $ip ) );
 		}
 
 		do_action(
@@ -251,7 +268,7 @@ class SecurityWP_Autoblock {
 			return;
 		}
 		$cutoff  = time() - ( self::DECAY_DAYS * DAY_IN_SECONDS );
-		$changed = false;
+		$touched = array();
 		foreach ( $state as $ip => $rec ) {
 			$last = (int) ( $rec['last_block_at'] ?? 0 );
 			if ( $last > $cutoff ) {
@@ -264,10 +281,10 @@ class SecurityWP_Autoblock {
 				// Advance last_block_at by one decay window so it keeps stepping down.
 				$state[ $ip ] = array( 'level' => $level, 'last_block_at' => $last + ( self::DECAY_DAYS * DAY_IN_SECONDS ) );
 			}
-			$changed = true;
+			$touched[] = $ip;
 		}
-		if ( $changed ) {
-			self::save_state( $state );
+		if ( $touched ) {
+			self::save_state( $state, $touched );
 		}
 	}
 
@@ -285,6 +302,20 @@ class SecurityWP_Autoblock {
 		// Never the current request's own IP (belt-and-suspenders; block() also guards this).
 		if ( $ip === SecurityWP_IP_Block::current_ip() && '' !== $ip ) {
 			return true;
+		}
+		// Private, loopback and reserved addresses are never a visitor's own: with no proxy
+		// declared they are the proxy or load balancer every request arrives through, and
+		// blocking one blocks everyone behind it, admins included.
+		if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+			return true;
+		}
+		// Same for a declared proxy (a public CDN edge, say) if it ever shows up as the client.
+		if ( class_exists( 'SecurityWP_Traffic_Log' ) ) {
+			foreach ( SecurityWP_Traffic_Log::trusted_proxies() as $proxy ) {
+				if ( self::ip_matches( $ip, (string) $proxy ) ) {
+					return true;
+				}
+			}
 		}
 		// Admin-configured allowlist (single IPs + CIDR ranges).
 		foreach ( self::allowlist() as $entry ) {
@@ -330,11 +361,12 @@ class SecurityWP_Autoblock {
 	/** Does $ip match a single-IP or CIDR allowlist entry? IPv4 + IPv6. */
 	public static function ip_matches( string $ip, string $entry ): bool {
 		$entry = trim( $entry );
-		if ( ! self::valid_allowlist_entry( $entry ) || ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+		$ip    = SecurityWP_Input::normalize_ip( $ip );
+		if ( ! self::valid_allowlist_entry( $entry ) || '' === $ip ) {
 			return false;
 		}
 		if ( false === strpos( $entry, '/' ) ) {
-			return $ip === $entry;
+			return $ip === SecurityWP_Input::normalize_ip( $entry );
 		}
 		list( $subnet, $bits ) = array_pad( explode( '/', $entry, 2 ), 2, '' );
 		$bits = (int) $bits;
@@ -420,7 +452,34 @@ class SecurityWP_Autoblock {
 		return is_array( $s ) ? $s : array();
 	}
 
-	private static function save_state( array $state ): void {
+	/**
+	 * Write back the entries for $touched IPs (set, or removed if absent from $state).
+	 *
+	 * Merged into a fresh read under a lock rather than writing $state whole: the cron pass
+	 * holds its copy for the whole evaluation (bot DNS checks can take a while), and an admin
+	 * Apply or the decay step in between would otherwise be overwritten with older levels.
+	 *
+	 * @param string[] $touched
+	 */
+	private static function save_state( array $state, array $touched ): void {
+		SecurityWP_Atomic::with_lock(
+			'autoblock_state',
+			static function () use ( $state, $touched ) {
+				wp_cache_delete( self::OPTION, 'options' );
+				$fresh = self::state();
+				foreach ( $touched as $ip ) {
+					if ( isset( $state[ $ip ] ) ) {
+						$fresh[ $ip ] = $state[ $ip ];
+					} else {
+						unset( $fresh[ $ip ] );
+					}
+				}
+				self::write_state( $fresh );
+			}
+		);
+	}
+
+	private static function write_state( array $state ): void {
 		// Bound the option: if oversized, keep the highest-level / most-recent IPs.
 		if ( count( $state ) > self::MAX_STATE ) {
 			uasort(

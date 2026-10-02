@@ -22,6 +22,56 @@ class SecurityWP_Author_Slugs {
 		add_filter( 'author_link', array( $this, 'filter_author_link' ), 10, 2 );
 		add_filter( 'request', array( $this, 'resolve_request' ) );
 		add_filter( 'rest_prepare_user', array( $this, 'filter_rest_user' ), 10, 2 );
+		// Other places the username shows through.
+		add_filter( 'rest_user_query', array( $this, 'filter_rest_user_query' ), 10, 2 );
+		add_filter( 'body_class', array( $this, 'filter_body_class' ) );
+		add_filter( 'comment_class', array( $this, 'filter_comment_class' ) );
+	}
+
+	/**
+	 * /wp/v2/users?slug=<username> answers "does this user exist" even though the slug in
+	 * the response is masked. For callers who can't list users, accept only tokens there
+	 * (translated to the real slug) and let any other value match nobody.
+	 */
+	public function filter_rest_user_query( $args, $request ) {
+		if ( ! is_array( $args ) || empty( $args['nicename__in'] ) || current_user_can( 'list_users' ) ) {
+			return $args;
+		}
+		$mapped = array();
+		foreach ( (array) $args['nicename__in'] as $slug ) {
+			$user_id = preg_match( '/^[a-f0-9]{32}$/D', (string) $slug ) ? (int) get_option( self::OWNER_PREFIX . $slug, 0 ) : 0;
+			$user    = $user_id > 0 && get_option( self::TOKEN_PREFIX . $user_id ) === $slug ? get_user_by( 'id', $user_id ) : false;
+			$mapped[] = $user ? $user->user_nicename : '___secwp_block___';
+		}
+		$args['nicename__in'] = $mapped;
+		return $args;
+	}
+
+	/** Author archives get body class "author-<nicename>"; drop it (author-<ID> stays). */
+	public function filter_body_class( $classes ) {
+		if ( ! is_array( $classes ) || ! is_author() ) {
+			return $classes;
+		}
+		$author = get_queried_object();
+		if ( $author instanceof WP_User ) {
+			$classes = array_values( array_diff( $classes, array( 'author-' . sanitize_html_class( $author->user_nicename, (string) $author->ID ) ) ) );
+		}
+		return $classes;
+	}
+
+	/** Comments by registered users get "comment-author-<nicename>"; drop it. */
+	public function filter_comment_class( $classes ) {
+		if ( ! is_array( $classes ) ) {
+			return $classes;
+		}
+		return array_values(
+			array_filter(
+				$classes,
+				static function ( $c ) {
+					return 0 !== strpos( (string) $c, 'comment-author-' );
+				}
+			)
+		);
 	}
 
 	/** Retire every legacy salt-derived identifier, including when this feature is off. */

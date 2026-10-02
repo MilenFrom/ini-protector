@@ -8,16 +8,22 @@
 	}
 	function run(){
 		document.querySelectorAll('.secwp-eml[data-eml]').forEach(function(el){
-			var email=decode(el.getAttribute('data-eml'));
-			if(!email){return;}
-			var href='mailto:'+email;
+			// The encoded value may carry the original link's ?subject=… after the address.
+			var full=decode(el.getAttribute('data-eml'));
+			if(!full){return;}
+			var email=full.split('?')[0];
+			var href='mailto:'+full;
 			var subj=el.getAttribute('data-subject');
-			if(subj){href+='?subject='+encodeURIComponent(subj);}
-			// Only show the address as text if the node has none of its own (the placeholder).
-			if(el.textContent.indexOf('@')===-1){el.textContent=email;}
+			if(subj&&full.indexOf('?')===-1){href+='?subject='+encodeURIComponent(subj);}
+			// Replace the text only where it is our placeholder; a custom label or an image
+			// inside the link stays as the author wrote it. (The text test covers pages cached
+			// before data-eml-fill existed.)
+			var placeholder=/^\[email\s*protected\]$/.test(el.textContent.replace(/\u00a0/g,' ').trim());
+			if(el.hasAttribute('data-eml-fill')||placeholder){el.textContent=email;}
 			if(el.tagName==='A'){el.setAttribute('href',href);}
 			el.classList.remove('secwp-eml');
 			el.removeAttribute('data-eml');
+			el.removeAttribute('data-eml-fill');
 		});
 		// Upgrade any href="#secwp-eml:<enc>" produced by the shortcode mailto mode.
 		document.querySelectorAll('a[href^="#secwp-eml:"]').forEach(function(a){

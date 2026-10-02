@@ -3,7 +3,8 @@
  * Disable comments site-wide. Closes comments (and pingbacks/trackbacks) on every post type,
  * hides existing comments from the front-end, and strips the comment UI out of wp-admin — the
  * Comments menu, the dashboard "Recent Comments" widget, the admin-bar Comments item, the
- * Discussion meta box, and the default Recent Comments widget. Also drops the comment feed.
+ * Discussion meta box, and the default Recent Comments widget. Also 404s the comment feeds and
+ * removes the comments REST routes for anyone who cannot moderate comments.
  *
  * Reverses cleanly when toggled off (all behavior is hook-based; nothing is written to the DB).
  *
@@ -33,11 +34,40 @@ class SecurityWP_Disable_Comments {
 		add_action( 'wp_dashboard_setup', array( $this, 'remove_dashboard_widget' ) );
 		add_action( 'wp_before_admin_bar_render', array( $this, 'remove_admin_bar_node' ) );
 
-		// Drop the comment feed link and 404 the comment feed.
+		// Drop the comment feed link and 404 the comment feeds (site-wide and per post);
+		// hiding the link alone left /comments/feed/ serving every existing comment.
 		add_filter( 'feed_links_show_comments_feed', '__return_false' );
+		add_action( 'template_redirect', array( $this, 'block_comment_feed' ), 0 );
+
+		// Existing comments stay readable through the REST API otherwise. Moderators keep
+		// access so they can still clean up from tools that use it.
+		add_filter( 'rest_endpoints', array( $this, 'filter_rest_endpoints' ) );
 
 		// Unregister the core "Recent Comments" widget.
 		add_action( 'widgets_init', array( $this, 'unregister_widget' ), 100 );
+	}
+
+	public function block_comment_feed(): void {
+		if ( ! is_comment_feed() ) {
+			return;
+		}
+		global $wp_query;
+		$wp_query->set_404();
+		$wp_query->is_feed = false; // set_404() keeps is_feed, which would still serve a feed.
+		status_header( 404 );
+		nocache_headers();
+	}
+
+	public function filter_rest_endpoints( $endpoints ) {
+		if ( ! is_array( $endpoints ) || current_user_can( 'moderate_comments' ) ) {
+			return $endpoints;
+		}
+		foreach ( array_keys( $endpoints ) as $route ) {
+			if ( 0 === strpos( $route, '/wp/v2/comments' ) ) {
+				unset( $endpoints[ $route ] );
+			}
+		}
+		return $endpoints;
 	}
 
 	public function remove_post_type_support(): void {
