@@ -429,12 +429,10 @@ class SecurityWP_Admin {
 				break;
 			case 'roles':
 				printf( '<span class="secwp-field-label">%s</span>', esc_html( $label ) );
+				// $value is the saved list, or the field's catalog default when nothing has been
+				// saved — the same fallback enforcement uses. Showing anything else (this used to
+				// show no roles once the feature was on) let a re-save silently drop administrators.
 				$selected = is_array( $value ) ? array_map( 'strval', $value ) : array();
-				// Default to administrator when nothing has ever been saved, so the
-				// feature is meaningful the moment it is switched on.
-				if ( ! $selected && ! SecurityWP_Features::is_on( $tweak ) ) {
-					$selected = array( 'administrator' );
-				}
 				echo '<div class="secwp-ns-list">';
 				foreach ( wp_roles()->get_names() as $role_key => $role_label ) {
 					printf(

@@ -309,7 +309,10 @@ class SecurityWP_Vuln_Scan {
 			return new WP_Error( 'http_error', $resp->get_error_message() );
 		}
 		$code = (int) wp_remote_retrieve_response_code( $resp );
-		if ( $code >= 500 ) {
+		// Only 200 is an answer, and 404 means "unknown to the database" (handled below).
+		// Anything else (403, 429 rate limiting, 5xx) is a failure even with a JSON body;
+		// caching it as data would read as "no vulnerabilities" for twelve hours.
+		if ( 200 !== $code && 404 !== $code ) {
 			set_transient( $cache_key, 'http_' . $code, HOUR_IN_SECONDS );
 			return new WP_Error( 'http_' . $code );
 		}

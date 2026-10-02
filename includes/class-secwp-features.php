@@ -195,9 +195,12 @@ class SecurityWP_Features {
 				'desc'   => 'Add a time-based one-time code (TOTP) to sign-in, using any standard authenticator app — Google Authenticator, 1Password, Aegis, Bitwarden. The password is checked first, then the code is asked for before any session is created. Each user turns it on from their own profile; the roles ticked below must. Recovery codes are issued at setup, and “wp secwp 2fa reset <user>” restores access from the shell if a phone is lost.',
 				'fields' => array(
 					'roles' => array(
-						'type'  => 'roles',
-						'label' => 'Roles that must use two-factor authentication',
-						'desc'  => 'Users in a ticked role are sent to their profile to set it up and cannot use the rest of wp-admin until they do. Everyone else may still turn it on voluntarily. Administrators at minimum is the sensible setting.',
+						'type'    => 'roles',
+						// Must match the fallback in SecurityWP_2FA::required_roles(): the form shows
+						// this when nothing is saved, so it has to be what is actually enforced.
+						'default' => array( 'administrator' ),
+						'label'   => 'Roles that must use two-factor authentication',
+						'desc'    => 'Users in a ticked role are sent to their profile to set it up and cannot use the rest of wp-admin until they do. Everyone else may still turn it on voluntarily. Administrators at minimum is the sensible setting.',
 					),
 				),
 			),

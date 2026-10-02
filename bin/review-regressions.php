@@ -161,6 +161,22 @@ inipr_assert( (bool) inipr_private( 'SecurityWP_Security_Scan', 'php_in_dir', wp
 unlink( $deny_dir . '/.htaccess' );
 rmdir( $deny_dir );
 
+// The 2FA roles form shows what is enforced when nothing has been saved.
+$roles_def = SecurityWP_Features::catalog()[ SecurityWP_2FA::FEATURE ]['fields']['roles'];
+inipr_assert( array( 'administrator' ) === $roles_def['default'] && SecurityWP_2FA::required_roles() === $roles_def['default'], '2FA roles form default matches enforcement' );
+
+// No application passwords for an account that must enrol in 2FA but has not.
+inipr_assert( ! SecurityWP_TOTP::is_enabled( 1 ) && false === SecurityWP_2FA::app_passwords_available( true, get_userdata( 1 ) ), 'app passwords unavailable before required 2FA enrolment' );
+
+// A rate-limited or forbidden API answer is an error, not "no vulnerabilities".
+$limited = static function () {
+	return array( 'response' => array( 'code' => 429 ), 'body' => '{"error":1,"data":null}', 'headers' => array(), 'cookies' => array() );
+};
+add_filter( 'pre_http_request', $limited );
+inipr_assert( is_wp_error( inipr_private( new SecurityWP_Vuln_Scan(), 'fetch', 'plugin', 'inipr-rate-limited', '1.0', true ) ), 'HTTP 429 from the vulnerability API is an error' );
+remove_filter( 'pre_http_request', $limited );
+delete_transient( 'secwp_vuln_' . md5( 'plugin|inipr-rate-limited|1.0' ) );
+
 // The app-password 2FA skip belongs to the user who presented it, not the whole request
 // (one XML-RPC system.multicall can authenticate several accounts).
 SecurityWP_2FA::flag_app_password( get_userdata( 1 ) );

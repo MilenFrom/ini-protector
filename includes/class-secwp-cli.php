@@ -132,6 +132,9 @@ class SecurityWP_CLI_Integrity {
 		WP_CLI\Utils\format_items( 'table', $rows, array( 'state', 'critical', 'path', 'size', 'mtime', 'note' ) );
 
 		$this->report_alert_status( $report );
+		if ( 'persist_failed' === ( $report['status'] ?? '' ) ) {
+			WP_CLI::warning( 'The baseline could not be fully saved (' . ( $report['db_error'] ?? 'database error' ) . '); these changes will be reported again.' );
+		}
 		$this->halt_on_changes( $report );
 	}
 

@@ -292,6 +292,14 @@ class SecurityWP_Integrity_Admin {
 			);
 		}
 
+		if ( 'persist_failed' === ( $r['status'] ?? '' ) ) {
+			$this->warn(
+				'dashicons-database',
+				__( 'The baseline could not be saved', 'ini-protector' ),
+				__( 'The database rejected part of the last baseline update, so some files will be reported again on the next run. Check the database error log, and that the integrity table exists and is writable.', 'ini-protector' )
+			);
+		}
+
 		if ( ! empty( $r['files_truncated'] ) ) {
 			$this->warn(
 				'dashicons-warning',

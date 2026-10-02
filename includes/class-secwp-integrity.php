@@ -736,8 +736,14 @@ class SecurityWP_Integrity {
 			|| empty( $report['alert']['configured'] )
 			|| ! empty( $report['alert']['delivered'] );
 		if ( $adopt ) {
-			$this->persist( $baseline, $current );
-			update_option( self::OPT_DIGEST, $digest, false );
+			if ( $this->persist( $baseline, $current ) ) {
+				update_option( self::OPT_DIGEST, $digest, false );
+			} else {
+				// Part of the baseline was not written. Keep the old digest so the chain
+				// stays honest, and say so instead of reporting a clean adoption.
+				$report['status']   = 'persist_failed';
+				$report['db_error'] = (string) $GLOBALS['wpdb']->last_error;
+			}
 		} else {
 			$report['status'] = 'alert_failed';
 		}
@@ -867,35 +873,61 @@ class SecurityWP_Integrity {
 	 * Write the observed state to the baseline table: upsert everything present,
 	 * delete rows for files that are gone.
 	 */
-	private function persist( array $baseline, array $current ): void {
+	/**
+	 * The path as stored in the baseline's display column: valid UTF-8, at most 512 bytes.
+	 *
+	 * wpdb refuses a whole query that contains bytes invalid for the table charset, so one
+	 * file named in Latin-1 (or a multibyte name cut mid-character by a byte-wise substr)
+	 * used to sink its entire 200-row write: those files were never baselined and came
+	 * back as NEW on every scan. Rows are keyed on a hash of the raw path, so diffing is
+	 * unaffected; only the displayed name loses the undecodable bytes.
+	 */
+	private static function storable_path( string $path ): string {
+		if ( function_exists( 'mb_convert_encoding' ) && function_exists( 'mb_strcut' ) ) {
+			$path = mb_convert_encoding( $path, 'UTF-8', 'UTF-8' ); // Invalid sequences become '?'.
+			return mb_strcut( $path, 0, 512, 'UTF-8' );
+		}
+		$path = wp_check_invalid_utf8( $path, true );
+		$cut  = substr( $path, 0, 512 );
+		return '' !== wp_check_invalid_utf8( $cut ) ? $cut : wp_check_invalid_utf8( substr( $cut, 0, 509 ), true );
+	}
+
+	/** @return bool False if any write failed; the caller must then not adopt the new state. */
+	private function persist( array $baseline, array $current ): bool {
 		global $wpdb;
 		$table = self::table_name();
 		$now   = time();
+		$ok    = true;
 
 		$write = array();
 		foreach ( $current as $ph => $packed ) {
-			if ( isset( $baseline[ $ph ] ) && $baseline[ $ph ] === $packed ) {
+			list( $hash, $size, $mtime, $path ) = array_pad( explode( self::SEP, $packed, 4 ), 4, '' );
+			$row = array( $hash, (int) $size, (int) $mtime, self::storable_path( $path ) );
+			// Compare in stored form, or a path that had to be cleaned would differ every run.
+			if ( isset( $baseline[ $ph ] ) && $baseline[ $ph ] === implode( self::SEP, $row ) ) {
 				continue; // Unchanged, including size/mtime — nothing to write.
 			}
-			$write[ $ph ] = $packed;
+			$write[ $ph ] = $row;
 		}
 
 		foreach ( array_chunk( $write, self::WRITE_CHUNK, true ) as $chunk ) {
 			$values = array();
 			$params = array();
-			foreach ( $chunk as $ph => $packed ) {
-				list( $hash, $size, $mtime, $path ) = array_pad( explode( self::SEP, $packed, 4 ), 4, '' );
+			foreach ( $chunk as $ph => $row ) {
+				list( $hash, $size, $mtime, $path ) = $row;
 				// The path column is capped, but the row is keyed on a hash of the FULL
 				// path, so a very long path is still diffed correctly — only its
 				// display is shortened.
 				$values[] = '(%s,%s,%s,%d,%d,%d,%d)';
-				array_push( $params, $ph, substr( $path, 0, 512 ), $hash, (int) $size, (int) $mtime, $now, $now );
+				array_push( $params, $ph, $path, $hash, $size, $mtime, $now, $now );
 			}
 			$sql = "INSERT INTO {$table} (path_hash, path, hash, size, mtime, first_seen, updated_at) VALUES "
 				. implode( ',', $values )
 				. ' ON DUPLICATE KEY UPDATE path=VALUES(path), hash=VALUES(hash), size=VALUES(size), mtime=VALUES(mtime), updated_at=VALUES(updated_at)';
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
-			$wpdb->query( $wpdb->prepare( $sql, $params ) );
+			if ( false === $wpdb->query( $wpdb->prepare( $sql, $params ) ) ) {
+				$ok = false;
+			}
 		}
 
 		$gone = array_keys( array_diff_key( $baseline, $current ) );
@@ -903,8 +935,11 @@ class SecurityWP_Integrity {
 			$in  = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
 			$sql = "DELETE FROM {$table} WHERE path_hash IN ({$in})";
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery
-			$wpdb->query( $wpdb->prepare( $sql, $chunk ) );
+			if ( false === $wpdb->query( $wpdb->prepare( $sql, $chunk ) ) ) {
+				$ok = false;
+			}
 		}
+		return $ok;
 	}
 
 	/** Append to the bounded rolling history (newest first). */

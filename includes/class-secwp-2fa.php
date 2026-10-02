@@ -27,9 +27,10 @@
  * request, so for a user with 2FA on, password authentication there is REFUSED
  * rather than waved through — otherwise 2FA would be trivially bypassable by
  * pointing the same stolen password at xmlrpc.php. Application passwords are the
- * supported path for automation: they are per-application, individually
- * revocable, and can only be created from inside an already-2FA-protected
- * session, so they are honoured as-is.
+ * supported path for automation: they are per-application and individually
+ * revocable, so they are honoured as-is. That is only sound because they can
+ * only come from a 2FA session: they are unavailable to an account that must
+ * enrol but has not, and any that exist are revoked when the account enrols.
  *
  * @package INI Protector
  */
@@ -79,6 +80,12 @@ class SecurityWP_2FA {
 		add_action( 'profile_update', array( __CLASS__, 'on_profile_update' ), 10, 2 );
 		add_action( 'secwp_2fa_disabled', array( __CLASS__, 'bump_auth_generation' ) );
 
+		// Application passwords skip the second factor, so they must not be a way around
+		// enrolment: someone holding only a phished password could otherwise create one
+		// before the account enrols and keep API access after it does.
+		add_filter( 'wp_is_application_passwords_available_for_user', array( __CLASS__, 'app_passwords_available' ), 10, 2 );
+		add_action( 'secwp_2fa_enabled', array( __CLASS__, 'revoke_app_passwords' ) );
+
 		// Enrolment UI on the user's own profile and on user-edit screens.
 		add_action( 'show_user_profile', array( __CLASS__, 'render_profile_section' ) );
 		add_action( 'edit_user_profile', array( __CLASS__, 'render_profile_section' ) );
@@ -97,6 +104,43 @@ class SecurityWP_2FA {
 
 	public static function flag_app_password( $user = null ): void {
 		self::$app_password_user_id = $user instanceof WP_User ? (int) $user->ID : 0;
+	}
+
+	/**
+	 * No application passwords — creating or using them — for an account that must use 2FA
+	 * but has not enrolled yet. Once enrolled, creating one requires a 2FA session.
+	 */
+	public static function app_passwords_available( $available, $user ) {
+		if ( ! $available || ! $user instanceof WP_User ) {
+			return $available;
+		}
+		if ( self::is_required_for( $user ) && ! SecurityWP_TOTP::is_enabled( $user->ID ) ) {
+			return false;
+		}
+		return $available;
+	}
+
+	/**
+	 * On enrolment, revoke every application password the account already has: each was
+	 * created by a session that never passed a second factor, so none of them can be told
+	 * apart from one an attacker made with the password alone.
+	 */
+	public static function revoke_app_passwords( $user_id ): void {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 || ! class_exists( 'WP_Application_Passwords' ) ) {
+			return;
+		}
+		$existing = WP_Application_Passwords::get_user_application_passwords( $user_id );
+		if ( empty( $existing ) ) {
+			return;
+		}
+		WP_Application_Passwords::delete_all_application_passwords( $user_id );
+		do_action(
+			'secwp_platform_event',
+			'2fa_app_passwords_revoked',
+			sprintf( 'Revoked %d application password(s) on two-factor enrolment', count( $existing ) ),
+			array( 'user_id' => $user_id, 'count' => count( $existing ) )
+		);
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -696,6 +740,9 @@ class SecurityWP_2FA {
 		echo '<input type="text" name="secwp_2fa_code" value="" class="regular-text" size="10" inputmode="numeric" '
 			. 'autocomplete="one-time-code" autocapitalize="off" spellcheck="false" placeholder="' . esc_attr__( '000000', 'ini-protector' ) . '" />';
 		echo '<p class="description">' . esc_html__( 'Two-factor authentication only switches on once a correct code proves the app is set up — a half-finished setup can never lock you out. You will be given recovery codes at that point; keep them somewhere other than your phone.', 'ini-protector' ) . '</p>';
+		if ( class_exists( 'WP_Application_Passwords' ) && WP_Application_Passwords::get_user_application_passwords( $user->ID ) ) {
+			echo '<p class="description"><strong>' . esc_html__( 'Turning this on revokes this account’s existing application passwords.', 'ini-protector' ) . '</strong> ' . esc_html__( 'They were created without a second factor. Create new ones afterwards for any app that still needs one.', 'ini-protector' ) . '</p>';
+		}
 		echo '</td></tr>';
 	}
 
