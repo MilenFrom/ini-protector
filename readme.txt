@@ -145,6 +145,12 @@ The widget runs locally in the browser; no ALTCHA service account is required.
 
 == Changelog ==
 
+= 1.11.0 =
+* New: **export and import settings** from INI Protector → Utilities. The file holds which protections are on and how each is configured — never traffic history, the file-integrity baseline, scan results, IP blocks or anyone's two-factor secrets. The site password and webhook secret are left out unless you tick "Include secrets", and an import never clears a secret.
+* Importing shows every change before anything is applied, highlights the ones that affect sign-in or blocking, and shows the login address afterwards if login masking is on. Settings the file does not contain are left as they are. The previous settings are kept, so **Undo last import** puts everything back in one click.
+* New WP-CLI commands: `wp inipr settings export`, `wp inipr settings import <file>` (with `--dry-run`) and `wp inipr settings undo`.
+* WP-CLI commands are now under **`wp inipr`** (for example `wp inipr integrity scan`, `wp inipr 2fa reset <user>`). The old `wp secwp` name keeps working for every command, so existing scripts and cron lines need no change.
+
 = 1.10.1 =
 * After you click Check for updates on the Plugins screen, an available release now appears as WordPress's own yellow update row under INI Protector — "There is a new version… View details or update now" — instead of a banner at the top of the page. The offer stays until you update (or for a week), and steps aside as soon as WordPress's regular update notice lists the same release.
 * Deleting the plugin now also removes the stored update offer on single-site installs.
